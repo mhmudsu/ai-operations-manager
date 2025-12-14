@@ -1,8 +1,24 @@
 import { Truck, Package, DollarSign, TrendingUp } from 'lucide-react'
 import { DashboardCard } from '@/components/dashboard/DashboardCard'
 import { LiveRouteCard } from '@/components/dashboard/LiveRouteCard'
+import { getCompanyStats, getOrders } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 
-export default function Dashboard() {
+export default async function Dashboard() {
+  // Get company ID (for now we'll use the first company)
+  const { data: companies } = await supabase
+    .from('companies')
+    .select('*')
+    .limit(1)
+    .single()
+
+  const companyId = companies?.id || ''
+
+  // Fetch real stats
+  const stats = await getCompanyStats(companyId)
+  const orders = await getOrders(companyId)
+
+  // Mock route data (we'll make real routes next)
   const routes = [
     { 
       routeNumber: 1, 
@@ -31,15 +47,6 @@ export default function Dashboard() {
       eta: 25, 
       status: 'delayed' as const 
     },
-    { 
-      routeNumber: 4, 
-      driver: 'Lisa de Jong', 
-      completed: 7, 
-      total: 7, 
-      nextStop: 'Depot', 
-      eta: 0, 
-      status: 'completed' as const 
-    },
   ]
 
   return (
@@ -55,7 +62,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <h1 className="font-bold text-gray-900">AI Operations</h1>
-                <p className="text-xs text-gray-500">Transport Jan BV</p>
+                <p className="text-xs text-gray-500">{companies?.name || 'Loading...'}</p>
               </div>
             </div>
             
@@ -73,28 +80,28 @@ export default function Dashboard() {
             Goedemorgen, Jan 👋
           </h2>
           <p className="text-gray-600">
-            Je hebt 4 actieve routes vandaag
+            Je hebt {stats.activeRoutes} actieve routes vandaag
           </p>
         </div>
         
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <DashboardCard
-            title="Vandaag"
-            value={23}
-            subtitle="leveringen"
+            title="In behandeling"
+            value={stats.todayOrders}
+            subtitle="orders"
             icon={Package}
             trend={12}
           />
           <DashboardCard
             title="Actieve routes"
-            value={5}
+            value={stats.activeRoutes}
             subtitle="onderweg"
             icon={Truck}
           />
           <DashboardCard
             title="Omzet vandaag"
-            value="€2.340"
+            value={`€${stats.revenue.toLocaleString()}`}
             icon={DollarSign}
             trend={8}
           />
@@ -107,7 +114,7 @@ export default function Dashboard() {
         </div>
         
         {/* Live Routes */}
-        <div>
+        <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">
               🔴 Live Routes
@@ -121,6 +128,49 @@ export default function Dashboard() {
             {routes.map((route) => (
               <LiveRouteCard key={route.routeNumber} {...route} />
             ))}
+          </div>
+        </div>
+
+        {/* Recent Orders */}
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            📦 Recente Orders
+          </h3>
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Klant</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Van → Naar</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gewicht</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {orders.slice(0, 5).map((order) => (
+                  <tr key={order.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      {order.customer_name}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {order.pickup_address} → {order.delivery_address}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {order.weight_kg} kg
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        order.status === 'completed' ? 'bg-success-50 text-success-700' :
+                        order.status === 'in-progress' ? 'bg-brand-50 text-brand-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {order.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </main>
