@@ -82,7 +82,7 @@ export default function NewOrderPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button type="submit" disabled={loading} className="flex-1 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50 font-medium">
+            <button type="submit" disabled={loading} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium">
               {loading ? 'Bezig...' : 'Order Aanmaken'}
             </button>
             <Link href="/orders" className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium">
