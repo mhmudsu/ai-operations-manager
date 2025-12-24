@@ -63,3 +63,29 @@ export async function getOrders(companyId: string) {
 
   return data || []
 }
+
+// Railway Backend API (for AI route optimization)
+const RAILWAY_API = 'https://routeplan-production.up.railway.app/api'
+
+export async function getRouteByToken(token: string) {
+  const response = await fetch(`${RAILWAY_API}/routes/${token}`)
+  if (!response.ok) throw new Error('Route not found')
+  return response.json()
+}
+
+export async function optimizeRouteAI(orders: any[]) {
+  const response = await fetch(`${RAILWAY_API}/planning/create`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      orders: orders.map(o => ({
+        customer_name: o.customer_name,
+        address: o.delivery_address,
+        weight_kg: o.weight_kg,
+        priority: o.priority || 1
+      }))
+    })
+  })
+  if (!response.ok) throw new Error('Optimization failed')
+  return response.json()
+}
