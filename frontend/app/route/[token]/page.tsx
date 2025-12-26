@@ -1,18 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { getRouteByToken } from '@/lib/api'
-import { MapPin, Navigation, Copy, CheckCircle } from 'lucide-react'
-import { Camera, Edit3, Check, X } from 'lucide-react'
-import { useRef } from 'react'
-
-const [completedStops, setCompletedStops] = useState<Set<number>>(new Set())
-const [activeStop, setActiveStop] = useState<number | null>(null)
-const [photos, setPhotos] = useState<{[key: number]: string}>({})
-const [signatures, setSignatures] = useState<{[key: number]: string}>({})
-const [notes, setNotes] = useState<{[key: number]: string}>({})
-const fileInputRef = useRef<HTMLInputElement>(null)
+import { MapPin, Navigation, Copy, CheckCircle, Camera, Check } from 'lucide-react'
 
 export default function DriverRoutePage() {
   const params = useParams()
@@ -20,58 +11,64 @@ export default function DriverRoutePage() {
   const [route, setRoute] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
+  const [completedStops, setCompletedStops] = useState<Set<number>>(new Set())
+  const [activeStop, setActiveStop] = useState<number | null>(null)
+  const [photos, setPhotos] = useState<{[key: number]: string}>({})
+  const [signatures, setSignatures] = useState<{[key: number]: string}>({})
+  const [notes, setNotes] = useState<{[key: number]: string}>({})
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     loadRoute()
   }, [token])
 
   async function loadRoute() {
-  try {
-    // TEST DATA - later vervangen met echte API call
-    if (token === 'test123abc') {
-      setRoute({
-        route_date: '2025-12-11',
-        total_distance_km: 156,
-        total_time_minutes: 165,
-        fuel_cost_eur: 181,
-        orders: [
-          {
-            sequence: 1,
-            orders: {
-              customer_name: 'Bakkerij Amsterdam',
-              address: 'Damrak 1, Amsterdam',
-              weight_kg: 50
+    try {
+      // TEST DATA - later vervangen met echte API call
+      if (token === 'test123abc') {
+        setRoute({
+          route_date: '2025-12-11',
+          total_distance_km: 156,
+          total_time_minutes: 165,
+          fuel_cost_eur: 181,
+          orders: [
+            {
+              sequence: 1,
+              orders: {
+                customer_name: 'Bakkerij Amsterdam',
+                address: 'Damrak 1, Amsterdam',
+                weight_kg: 50
+              }
+            },
+            {
+              sequence: 2,
+              orders: {
+                customer_name: 'Restaurant Utrecht',
+                address: 'Oudegracht 50, Utrecht',
+                weight_kg: 30
+              }
+            },
+            {
+              sequence: 3,
+              orders: {
+                customer_name: 'Winkel Den Haag',
+                address: 'Lange Voorhout 40, Den Haag',
+                weight_kg: 40
+              }
             }
-          },
-          {
-            sequence: 2,
-            orders: {
-              customer_name: 'Restaurant Utrecht',
-              address: 'Oudegracht 50, Utrecht',
-              weight_kg: 30
-            }
-          },
-          {
-            sequence: 3,
-            orders: {
-              customer_name: 'Winkel Den Haag',
-              address: 'Lange Voorhout 40, Den Haag',
-              weight_kg: 40
-            }
-          }
-        ]
-      })
-    } else {
-      // Real API call
-      const data = await getRouteByToken(token)
-      setRoute(data)
+          ]
+        })
+      } else {
+        // Real API call
+        const data = await getRouteByToken(token)
+        setRoute(data)
+      }
+    } catch (error) {
+      console.error('Error loading route:', error)
+    } finally {
+      setLoading(false)
     }
-  } catch (error) {
-    console.error('Error loading route:', error)
-  } finally {
-    setLoading(false)
   }
-}
 
   function openGoogleMaps() {
     if (!route?.orders) return
@@ -95,31 +92,31 @@ export default function DriverRoutePage() {
   }
 
   function handlePhotoUpload(stopSequence: number, event: React.ChangeEvent<HTMLInputElement>) {
-  const file = event.target.files?.[0]
-  if (!file) return
-  
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    setPhotos(prev => ({ ...prev, [stopSequence]: e.target?.result as string }))
+    const file = event.target.files?.[0]
+    if (!file) return
+    
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      setPhotos(prev => ({ ...prev, [stopSequence]: e.target?.result as string }))
+    }
+    reader.readAsDataURL(file)
   }
-  reader.readAsDataURL(file)
-}
 
-function completeStop(stopSequence: number) {
-  setCompletedStops(prev => new Set([...prev, stopSequence]))
-  setActiveStop(null)
-  // TODO: Upload to Supabase
-  console.log('Stop completed:', {
-    sequence: stopSequence,
-    photo: photos[stopSequence],
-    signature: signatures[stopSequence],
-    notes: notes[stopSequence]
-  })
-}
+  function completeStop(stopSequence: number) {
+    setCompletedStops(prev => new Set([...prev, stopSequence]))
+    setActiveStop(null)
+    // TODO: Upload to Supabase
+    console.log('Stop completed:', {
+      sequence: stopSequence,
+      photo: photos[stopSequence],
+      signature: signatures[stopSequence],
+      notes: notes[stopSequence]
+    })
+  }
 
-function toggleStopDetails(stopSequence: number) {
-  setActiveStop(activeStop === stopSequence ? null : stopSequence)
-}
+  function toggleStopDetails(stopSequence: number) {
+    setActiveStop(activeStop === stopSequence ? null : stopSequence)
+  }
 
   if (loading) {
     return (
@@ -201,132 +198,136 @@ function toggleStopDetails(stopSequence: number) {
         </div>
 
         {/* Stops List */}
-<div className="space-y-3">
-  <input
-    ref={fileInputRef}
-    type="file"
-    accept="image/*"
-    capture="environment"
-    className="hidden"
-    onChange={(e) => {
-      if (activeStop) handlePhotoUpload(activeStop, e)
-    }}
-  />
-  
-  {route.orders?.map((stop: any) => {
-    const isCompleted = completedStops.has(stop.sequence)
-    const isActive = activeStop === stop.sequence
-    
-    return (
-      <div 
-        key={stop.sequence} 
-        className={`bg-white rounded-xl shadow-sm border transition-all ${
-          isCompleted ? 'border-green-200 bg-green-50' : 'border-gray-100'
-        }`}
-      >
-        <div className="p-5">
-          <div className="flex items-start gap-4">
-            <div className="flex-shrink-0">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                isCompleted ? 'bg-green-500' : 'bg-blue-100'
-              }`}>
-                {isCompleted ? (
-                  <Check className="w-6 h-6 text-white" />
-                ) : (
-                  <span className="text-blue-600 font-bold">{stop.sequence}</span>
-                )}
-              </div>
-            </div>
+        <div className="space-y-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              if (activeStop) handlePhotoUpload(activeStop, e)
+            }}
+          />
+          
+          {route.orders?.map((stop: any) => {
+            const isCompleted = completedStops.has(stop.sequence)
+            const isActive = activeStop === stop.sequence
             
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className={`font-semibold ${isCompleted ? 'text-green-900' : 'text-gray-900'}`}>
-                  {stop.orders.customer_name}
-                </h3>
-                {isCompleted && (
-                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                    Afgerond
-                  </span>
-                )}
-              </div>
-              
-              <div className="flex items-start gap-2 text-gray-600">
-                <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <p className="text-sm">{stop.orders.address}</p>
-              </div>
-              
-              <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
-                <span>📦 {stop.orders.weight_kg} kg</span>
-              </div>
-            </div>
-          </div>
-          
-          {!isCompleted && (
-            <div className="mt-4 flex gap-2">
-              <button
-                onClick={() => toggleStopDetails(stop.sequence)}
-                className="flex-1 bg-blue-600 text-white rounded-lg py-3 font-semibold hover:bg-blue-700 transition-colors"
+            return (
+              <div 
+                key={stop.sequence} 
+                className={`bg-white rounded-xl shadow-sm border transition-all ${
+                  isCompleted ? 'border-green-200 bg-green-50' : 'border-gray-100'
+                }`}
               >
-                {isActive ? 'Sluiten' : 'Afronden'}
-              </button>
-            </div>
-          )}
-          
-          {isActive && !isCompleted && (
-            <div className="mt-4 space-y-3 pt-4 border-t">
-              {/* Photo Upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  📸 Foto bezorging
-                </label>
-                <button
-                  onClick={() => {
-                    setActiveStop(stop.sequence)
-                    fileInputRef.current?.click()
-                  }}
-                  className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-500 transition-colors"
-                >
-                  {photos[stop.sequence] ? (
-                    <img 
-                      src={photos[stop.sequence]} 
-                      alt="Delivery proof" 
-                      className="w-full h-48 object-cover rounded"
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 text-gray-500">
-                      <Camera className="w-8 h-8" />
-                      <span>Foto maken</span>
+                <div className="p-5">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        isCompleted ? 'bg-green-500' : 'bg-blue-100'
+                      }`}>
+                        {isCompleted ? (
+                          <Check className="w-6 h-6 text-white" />
+                        ) : (
+                          <span className="text-blue-600 font-bold">{stop.sequence}</span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className={`font-semibold ${isCompleted ? 'text-green-900' : 'text-gray-900'}`}>
+                          {stop.orders.customer_name}
+                        </h3>
+                        {isCompleted && (
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                            Afgerond
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-start gap-2 text-gray-600">
+                        <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <p className="text-sm">{stop.orders.address}</p>
+                      </div>
+                      
+                      <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
+                        <span>📦 {stop.orders.weight_kg} kg</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {!isCompleted && (
+                    <div className="mt-4 flex gap-2">
+                      <button
+                        onClick={() => toggleStopDetails(stop.sequence)}
+                        className="flex-1 bg-blue-600 text-white rounded-lg py-3 font-semibold hover:bg-blue-700 transition-colors"
+                      >
+                        {isActive ? 'Sluiten' : 'Afronden'}
+                      </button>
                     </div>
                   )}
-                </button>
+                  
+                  {isActive && !isCompleted && (
+                    <div className="mt-4 space-y-3 pt-4 border-t">
+                      {/* Photo Upload */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          📸 Foto bezorging
+                        </label>
+                        <button
+                          onClick={() => {
+                            setActiveStop(stop.sequence)
+                            fileInputRef.current?.click()
+                          }}
+                          className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-500 transition-colors"
+                        >
+                          {photos[stop.sequence] ? (
+                            <img 
+                              src={photos[stop.sequence]} 
+                              alt="Delivery proof" 
+                              className="w-full h-48 object-cover rounded"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center gap-2 text-gray-500">
+                              <Camera className="w-8 h-8" />
+                              <span>Foto maken</span>
+                            </div>
+                          )}
+                        </button>
+                      </div>
+                      
+                      {/* Notes */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          📝 Notities (optioneel)
+                        </label>
+                        <textarea
+                          value={notes[stop.sequence] || ''}
+                          onChange={(e) => setNotes(prev => ({ ...prev, [stop.sequence]: e.target.value }))}
+                          placeholder="Bijv: Afgeleverd bij buren, deur 2..."
+                          className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          rows={3}
+                        />
+                      </div>
+                      
+                      {/* Complete Button */}
+                      <button
+                        onClick={() => completeStop(stop.sequence)}
+                        className="w-full bg-green-600 text-white rounded-lg py-3 font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Check className="w-5 h-5" />
+                        Bevestig afronding
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-              
-              {/* Notes */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  📝 Notities (optioneel)
-                </label>
-                <textarea
-                  value={notes[stop.sequence] || ''}
-                  onChange={(e) => setNotes(prev => ({ ...prev, [stop.sequence]: e.target.value }))}
-                  placeholder="Bijv: Afgeleverd bij buren, deur 2..."
-                  className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  rows={3}
-                />
-              </div>
-              
-              {/* Complete Button */}
-              <button
-                onClick={() => completeStop(stop.sequence)}
-                className="w-full bg-green-600 text-white rounded-lg py-3 font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-              >
-                <Check className="w-5 h-5" />
-                Bevestig afronding
-              </button>
-            </div>
-          )}
+            )
+          })}
         </div>
       </div>
-    )
-  })}
-</div>
+    </div>
+  )
+}
