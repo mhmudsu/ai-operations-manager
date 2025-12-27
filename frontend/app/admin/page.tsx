@@ -111,7 +111,7 @@ export default function AdminDashboard() {
           fuel_cost_eur: 181,
           savings_eur: 93,
           stops: 3,
-          orders: orders.slice(0, 3),
+          orders: pendingOrders,
           access_token: 'test123abc'
         }
       ]
