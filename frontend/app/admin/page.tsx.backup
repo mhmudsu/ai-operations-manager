@@ -46,7 +46,7 @@ export default function AdminDashboard() {
       }
       
       console.log('Loaded orders from Supabase:', data)
-      setOrders(data?.map(o => ({...o, delivery_address: o.address})) || [])
+      setOrders(data || [])
     } catch (error) {
       console.error('Failed to load orders:', error)
     } finally {
@@ -58,39 +58,20 @@ export default function AdminDashboard() {
     setOptimizing(true)
     
     try {
-      console.log('Calling Railway backend...')
-      console.log('Orders to optimize:', orders)
-      
       // Call Railway backend to optimize routes
-      const response = await fetch('https://routeplan-production.up.railway.app/api/planning/create', {
+      const response = await fetch('https://routeplan-production.up.railway.app/api/optimize-routes-from-db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          orders: orders.map(o => ({
-            customer_name: o.customer_name,
-            delivery_address: o.delivery_address,
-            weight_kg: o.weight_kg,
-            priority: o.priority || 2
-          })),
+          company_id: '52fff84f-0853-413b-bd3c-6ac2bb1a71b9',
           start_address: 'Depot Eindhoven'
         })
       })
       
       const result = await response.json()
-      console.log('Backend response:', result)
       
       if (result.success) {
-        const routes = result.plan?.routes || []
-        
-        setRoutes(routes.map((route: any, idx: number) => ({
-          id: idx + 1,
-          driver_name: route.driver || `Driver ${idx + 1}`,
-          optimized_orders: route.stops || [],
-          total_distance_km: route.distance_km || 0,
-          total_time_minutes: (route.costs?.driving_hours || 0) * 60,
-          fuel_cost_eur: route.costs?.fuel_cost_euro || 0
-        })))
-        
+        setRoutes([result.route])
         await loadOrders() // Reload orders to see status updates
       }
     } catch (error) {

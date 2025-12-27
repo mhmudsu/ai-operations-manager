@@ -5,15 +5,14 @@ import { getCompanyStats, getOrders } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 
 export default async function Dashboard() {
-  // Get company ID - use first active company or Demo Company
+  // Get company ID (for now we'll use the first company)
   const { data: companies } = await supabase
     .from('companies')
     .select('*')
-    .eq('status', 'active')
     .limit(1)
-    .maybeSingle()
-  
-  const companyId = companies?.id || '52fff84f-0853-413b-bd3c-6ac2bb1a71b9'
+    .single()
+
+  const companyId = companies?.id || ''
 
   // Fetch real stats
   const stats = await getCompanyStats(companyId)

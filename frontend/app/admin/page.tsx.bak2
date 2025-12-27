@@ -46,7 +46,7 @@ export default function AdminDashboard() {
       }
       
       console.log('Loaded orders from Supabase:', data)
-      setOrders(data?.map(o => ({...o, delivery_address: o.address})) || [])
+      setOrders(data || [])
     } catch (error) {
       console.error('Failed to load orders:', error)
     } finally {
@@ -84,10 +84,10 @@ export default function AdminDashboard() {
         
         setRoutes(routes.map((route: any, idx: number) => ({
           id: idx + 1,
-          driver_name: route.driver || `Driver ${idx + 1}`,
+          driver_name: route.driver?.name || `Driver ${idx + 1}`,
           optimized_orders: route.stops || [],
-          total_distance_km: route.distance_km || 0,
-          total_time_minutes: (route.costs?.driving_hours || 0) * 60,
+          total_distance_km: route.total_distance_km || 0,
+          total_time_minutes: route.total_time_minutes || 0,
           fuel_cost_eur: route.costs?.fuel_cost_euro || 0
         })))
         
