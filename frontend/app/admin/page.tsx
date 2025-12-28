@@ -16,6 +16,7 @@ export default function AdminDashboard() {
   const [routes, setRoutes] = useState<any[]>([])
   const [optimizing, setOptimizing] = useState(false)
   const [showNewOrderModal, setShowNewOrderModal] = useState(false)
+  const [depotAddress, setDepotAddress] = useState("Depot Eindhoven") // Fallback
   const [uploadStatus, setUploadStatus] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   
@@ -35,6 +36,21 @@ export default function AdminDashboard() {
   async function loadOrders() {
     try {
       setLoading(true)
+      
+      // Load company depot address
+      const { data: companyData } = await supabase
+        .from('companies')
+        .select('depot_address, depot_city')
+        .eq('id', '52fff84f-0853-413b-bd3c-6ac2bb1a71b9')
+        .single()
+      
+      if (companyData?.depot_address && companyData?.depot_city) {
+        const fullDepot = `${companyData.depot_address}, ${companyData.depot_city}`
+        setDepotAddress(fullDepot)
+        console.log('Loaded depot address:', fullDepot)
+      }
+      
+      // Load orders
       const { data, error } = await supabase
         .from('orders')
         .select('*')
@@ -53,6 +69,7 @@ export default function AdminDashboard() {
       setLoading(false)
     }
   }
+  }
 
   async function handleOptimizeRoutes() {
     setOptimizing(true)
@@ -68,11 +85,11 @@ export default function AdminDashboard() {
         body: JSON.stringify({
           orders: orders.map(o => ({
             customer_name: o.customer_name,
-            delivery_address: o.delivery_address,
+            address: o.delivery_address,
             weight_kg: o.weight_kg,
             priority: o.priority || 2
           })),
-          start_address: 'Depot Eindhoven'
+          start_address: depotAddress
         })
       })
       
@@ -112,7 +129,7 @@ export default function AdminDashboard() {
           delivery_date: newOrder.delivery_date,
           status: 'pending',
           customer_phone: '+31612345678',
-          pickup_address: 'Depot Eindhoven'
+          pickup_address: depotAddress
         }])
         .select()
       
@@ -153,7 +170,7 @@ export default function AdminDashboard() {
           delivery_date: values[4] || new Date().toISOString().split('T')[0],
           status: 'pending',
           customer_phone: '+31612345678',
-          pickup_address: 'Depot Eindhoven'
+          pickup_address: depotAddress
         }
       })
       
@@ -324,7 +341,7 @@ export default function AdminDashboard() {
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="font-semibold text-lg">Route {idx + 1}</h3>
-                      <p className="text-sm text-gray-600">Chauffeur: Piet van Dam</p>
+                      <p className="text-sm text-gray-600">Chauffeur: {route.driver_name}</p>
                     </div>
                     <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
                       <TrendingUp className="w-5 h-5" />
@@ -342,7 +359,7 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <div className="text-sm text-gray-600">Tijd</div>
-                      <div className="text-2xl font-bold">{Math.floor((route.total_time_minutes || 0) / 60)}u {(route.total_time_minutes || 0) % 60}m</div>
+                      <div className="text-2xl font-bold">{Math.floor((route.total_time_minutes || 0) / 60)}u {Math.floor((route.total_time_minutes || 0) % 60)}m</div>
                     </div>
                     <div>
                       <div className="text-sm text-gray-600">Brandstof</div>
