@@ -17,6 +17,7 @@ export default function AdminDashboard() {
   const [optimizing, setOptimizing] = useState(false)
   const [showNewOrderModal, setShowNewOrderModal] = useState(false)
   const [depotAddress, setDepotAddress] = useState("Depot Eindhoven") // Fallback
+  const [selectedRoute, setSelectedRoute] = useState<any>(null)
   const [uploadStatus, setUploadStatus] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   
@@ -69,7 +70,6 @@ export default function AdminDashboard() {
       setLoading(false)
     }
   }
-  }
 
   async function handleOptimizeRoutes() {
     setOptimizing(true)
@@ -99,14 +99,25 @@ export default function AdminDashboard() {
       if (result.success) {
         const routes = result.plan?.routes || []
         
-        setRoutes(routes.map((route: any, idx: number) => ({
-          id: idx + 1,
-          driver_name: route.driver || `Driver ${idx + 1}`,
-          optimized_orders: route.stops || [],
-          total_distance_km: route.distance_km || 0,
-          total_time_minutes: (route.costs?.driving_hours || 0) * 60,
-          fuel_cost_eur: route.costs?.fuel_cost_euro || 0
-        })))
+        // Get total savings from cost analysis
+        const totalSavings = result.cost_analysis?.savings_analysis?.savings?.cost_saved_euro || 0
+        const totalFuelCost = routes.reduce((sum: number, r: any) => sum + (r.costs?.fuel_cost_euro || 0), 0)
+        
+        setRoutes(routes.map((route: any, idx: number) => {
+          // Calculate proportional savings for this route
+          const routeFuelCost = route.costs?.fuel_cost_euro || 0
+          const routeSavings = totalFuelCost > 0 ? (routeFuelCost / totalFuelCost) * totalSavings : 0
+          
+          return {
+            id: idx + 1,
+            driver_name: route.driver || `Driver ${idx + 1}`,
+            optimized_orders: route.stops || [],
+            total_distance_km: route.distance_km || 0,
+            total_time_minutes: (route.costs?.driving_hours || 0) * 60,
+            fuel_cost_eur: routeFuelCost,
+            savings_euro: Math.round(routeSavings * 100) / 100  // Round to 2 decimals
+          }
+        }))
         
         await loadOrders() // Reload orders to see status updates
       }
@@ -329,7 +340,13 @@ export default function AdminDashboard() {
         {routes.length > 0 && (
           <div className="bg-white rounded-xl border">
             <div className="p-4 border-b flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Geoptimaliseerde Routes ({routes.length})</h2>
+              <div>
+                <h2 className="text-lg font-semibold">Geoptimaliseerde Routes ({routes.length})</h2>
+                <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
+                  <Navigation className="w-4 h-4" />
+                  Vertrekpunt: {depotAddress}
+                </p>
+              </div>
               <button className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 font-semibold">
                 <Navigation className="w-5 h-5" />
                 Verstuur naar Chauffeurs
@@ -343,7 +360,7 @@ export default function AdminDashboard() {
                       <h3 className="font-semibold text-lg">Route {idx + 1}</h3>
                       <p className="text-sm text-gray-600">Chauffeur: {route.driver_name}</p>
                     </div>
-                    <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+                    <button onClick={() => setSelectedRoute(route)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
                       <TrendingUp className="w-5 h-5" />
                       Preview Route
                     </button>
@@ -366,8 +383,8 @@ export default function AdminDashboard() {
                       <div className="text-2xl font-bold">€{route.fuel_cost_eur}</div>
                     </div>
                     <div>
-                      <div className="text-sm text-gray-600">Bespaard!</div>
-                      <div className="text-2xl font-bold text-green-600">€{Math.floor(route.fuel_cost_eur * 0.5)}</div>
+                      <div className="text-sm text-gray-600 flex items-center gap-1">Bespaard! <span title="Besparing vs. aparte ritten (elke order = depot → klant → depot)" className="cursor-help">ℹ️</span></div>
+                      <div className="text-2xl font-bold text-green-600">€{route.savings_euro}</div>
                     </div>
                   </div>
                 </div>
@@ -455,6 +472,118 @@ export default function AdminDashboard() {
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                   Toevoegen
+
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Preview Route Modal */}
+        {selectedRoute && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-xl font-semibold">Route Details</h3>
+                  <p className="text-sm text-gray-500">Chauffeur: {selectedRoute.driver_name}</p>
+                </div>
+                <button onClick={() => setSelectedRoute(null)}>
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-4 gap-3 mb-6">
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <div className="text-xs text-gray-600">Stops</div>
+                  <div className="text-lg font-bold">{selectedRoute.optimized_orders?.length || 0}</div>
+                </div>
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <div className="text-xs text-gray-600">Afstand</div>
+                  <div className="text-lg font-bold">{selectedRoute.total_distance_km} km</div>
+                </div>
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <div className="text-xs text-gray-600">Tijd</div>
+                  <div className="text-lg font-bold">{Math.floor((selectedRoute.total_time_minutes || 0) / 60)}u {Math.floor((selectedRoute.total_time_minutes || 0) % 60)}m</div>
+                </div>
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <div className="text-xs text-gray-600">Brandstof</div>
+                  <div className="text-lg font-bold">€{selectedRoute.fuel_cost_eur}</div>
+                </div>
+              </div>
+
+              {/* Stops List */}
+              <div className="mb-6">
+                <h4 className="font-semibold mb-3">Route Stops</h4>
+                <div className="space-y-2">
+                  {/* Depot Start */}
+                  <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
+                    <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                      START
+                    </div>
+                    <div>
+                      <div className="font-medium">Depot</div>
+                      <div className="text-sm text-gray-600">{depotAddress}</div>
+                    </div>
+                  </div>
+
+                  {/* Delivery Stops */}
+                  {selectedRoute.optimized_orders?.map((order: any, idx: number) => (
+                    <div key={idx} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                      <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                        {idx + 1}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium">{order.customer || order.customer_name}</div>
+                        <div className="text-sm text-gray-600">{order.address || order.delivery_address}</div>
+                        {order.weight_kg && (
+                          <div className="text-xs text-gray-500 mt-1">Gewicht: {order.weight_kg} kg</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Depot End */}
+                  <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
+                    <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                      END
+                    </div>
+                    <div>
+                      <div className="font-medium">Terug naar Depot</div>
+                      <div className="text-sm text-gray-600">{depotAddress}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    const addresses = [
+                      depotAddress,
+                      ...(selectedRoute.optimized_orders?.map((o: any) => o.address || o.delivery_address) || []),
+                      depotAddress
+                    ].join(' / ')
+                    navigator.clipboard.writeText(addresses)
+                    alert('Route gekopieerd naar clipboard!')
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2"
+                >
+                  📋 Kopieer Route
+                </button>
+                <button
+                  onClick={() => {
+                    const waypoints = [
+                      depotAddress,
+                      ...(selectedRoute.optimized_orders?.map((o: any) => o.address || o.delivery_address) || []),
+                      depotAddress
+                    ].map(addr => encodeURIComponent(addr)).join('/')
+                    window.open(`https://www.google.com/maps/dir/${waypoints}`, '_blank')
+                  }}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
+                >
+                  🗺️ Open in Google Maps
                 </button>
               </div>
             </div>
