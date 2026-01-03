@@ -1,28 +1,23 @@
 interface LiveRouteCardProps {
-  routeNumber: number
-  driver: string
-  completed: number
-  total: number
-  nextStop: string
-  eta: number
-  status: 'on-time' | 'delayed' | 'completed'
+  route: {
+    routeNumber: number
+    driver: string
+    completed: number
+    total: number
+    nextStop: string
+    eta: number
+    status: 'on-time' | 'delayed' | 'completed'
+  }
 }
 
-export function LiveRouteCard({ 
-  routeNumber, 
-  driver, 
-  completed, 
-  total, 
-  nextStop, 
-  eta,
-  status 
-}: LiveRouteCardProps) {
+export function LiveRouteCard({ route }: LiveRouteCardProps) {
+  const { routeNumber, driver, completed, total, nextStop, eta, status } = route
   const progress = (completed / total) * 100
   
   const statusStyles = {
-    'on-time': 'bg-success-50 text-success-700 border-success-200',
-    'delayed': 'bg-warning-50 text-warning-700 border-warning-200',
-    'completed': 'bg-brand-50 text-brand-700 border-brand-200',
+    'on-time': 'bg-green-50 text-green-700 border-green-200',
+    'delayed': 'bg-yellow-50 text-yellow-700 border-yellow-200',
+    'completed': 'bg-blue-50 text-blue-700 border-blue-200',
   }
   
   const statusLabels = {
@@ -32,7 +27,7 @@ export function LiveRouteCard({
   }
   
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg hover:border-brand-300 transition-all duration-200">
+    <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg hover:border-blue-300 transition-all duration-200">
       <div className="flex items-start justify-between mb-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -58,7 +53,7 @@ export function LiveRouteCard({
           <span className="text-gray-600">
             {completed} van {total} stops
           </span>
-          <span className="font-medium text-brand-600">
+          <span className="font-medium text-blue-600">
             {eta} min
           </span>
         </div>
