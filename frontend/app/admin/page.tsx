@@ -1,594 +1,189 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { Upload, Plus, Package, Truck, TrendingUp, Navigation, X } from 'lucide-react'
-import Link from 'next/link'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { useEffect, useState } from 'react'
+import { Truck, Package, DollarSign, TrendingUp } from 'lucide-react'
+import { DashboardCard } from '@/components/dashboard/DashboardCard'
+import { DashboardHeader } from '@/components/dashboard/Header'
+import { useAuth } from '@/components/auth/AuthProvider'
+import { api } from '@/lib/api-client'
 
 export default function AdminDashboard() {
+  const { user, loading } = useAuth()
   const [orders, setOrders] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [routes, setRoutes] = useState<any[]>([])
-  const [optimizing, setOptimizing] = useState(false)
-  const [showNewOrderModal, setShowNewOrderModal] = useState(false)
-  const [depotAddress, setDepotAddress] = useState("Depot Eindhoven") // Fallback
-  const [selectedRoute, setSelectedRoute] = useState<any>(null)
-  const [uploadStatus, setUploadStatus] = useState('')
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  
-  const [newOrder, setNewOrder] = useState({
-    customer_name: '',
-    delivery_address: '',
-    weight_kg: 0,
-    priority: 1,
-    delivery_date: new Date().toISOString().split('T')[0]
-  })
+  const [loadingData, setLoadingData] = useState(true)
+  const [error, setError] = useState('')
 
-  // Load orders from Supabase on mount
   useEffect(() => {
-    loadOrders()
-  }, [])
+    if (!user) return
 
-  async function loadOrders() {
-    try {
-      setLoading(true)
-      
-      // Load company depot address
-      const { data: companyData } = await supabase
-        .from('companies')
-        .select('depot_address, depot_city')
-        .eq('id', '52fff84f-0853-413b-bd3c-6ac2bb1a71b9')
-        .single()
-      
-      if (companyData?.depot_address && companyData?.depot_city) {
-        const fullDepot = `${companyData.depot_address}, ${companyData.depot_city}`
-        setDepotAddress(fullDepot)
-        console.log('Loaded depot address:', fullDepot)
-      }
-      
-      // Load orders
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false })
-      
-      if (error) {
-        console.error('Error loading orders:', error)
-        throw error
-      }
-      
-      console.log('Loaded orders from Supabase:', data)
-      setOrders(data?.map(o => ({...o, delivery_address: o.address})) || [])
-    } catch (error) {
-      console.error('Failed to load orders:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleOptimizeRoutes() {
-    setOptimizing(true)
-    
-    try {
-      console.log('Calling Railway backend...')
-      console.log('Orders to optimize:', orders)
-      
-      // Call Railway backend to optimize routes
-      const response = await fetch('https://routeplan-production.up.railway.app/api/planning/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orders: orders.map(o => ({
-            customer_name: o.customer_name,
-            address: o.delivery_address,
-            weight_kg: o.weight_kg,
-            priority: o.priority || 2
-          })),
-          start_address: depotAddress
-        })
-      })
-      
-      const result = await response.json()
-      console.log('Backend response:', result)
-      
-      if (result.success) {
-        const routes = result.plan?.routes || []
-        
-        // Get total savings from cost analysis
-        const totalSavings = result.cost_analysis?.savings_analysis?.savings?.cost_saved_euro || 0
-        const totalFuelCost = routes.reduce((sum: number, r: any) => sum + (r.costs?.fuel_cost_euro || 0), 0)
-        
-        setRoutes(routes.map((route: any, idx: number) => {
-          // Calculate proportional savings for this route
-          const routeFuelCost = route.costs?.fuel_cost_euro || 0
-          const routeSavings = totalFuelCost > 0 ? (routeFuelCost / totalFuelCost) * totalSavings : 0
-          
-          return {
-            id: idx + 1,
-            driver_name: route.driver || `Driver ${idx + 1}`,
-            optimized_orders: route.stops || [],
-            total_distance_km: route.distance_km || 0,
-            total_time_minutes: (route.costs?.driving_hours || 0) * 60,
-            fuel_cost_eur: routeFuelCost,
-            savings_euro: Math.round(routeSavings * 100) / 100  // Round to 2 decimals
-          }
-        }))
-        
-        await loadOrders() // Reload orders to see status updates
-      }
-    } catch (error) {
-      console.error('Route optimization failed:', error)
-    } finally {
-      setOptimizing(false)
-    }
-  }
-
-  async function addNewOrder() {
-    try {
-      const { data, error } = await supabase
-        .from('orders')
-        .insert([{
-          customer_name: newOrder.customer_name,
-          delivery_address: newOrder.delivery_address,
-          weight_kg: newOrder.weight_kg,
-          priority: newOrder.priority,
-          delivery_date: newOrder.delivery_date,
-          status: 'pending',
-          customer_phone: '+31612345678',
-          pickup_address: depotAddress
-        }])
-        .select()
-      
-      if (error) throw error
-      
-      setShowNewOrderModal(false)
-      setNewOrder({
-        customer_name: '',
-        delivery_address: '',
-        weight_kg: 0,
-        priority: 1,
-        delivery_date: new Date().toISOString().split('T')[0]
-      })
-      
-      await loadOrders()
-    } catch (error) {
-      console.error('Error adding order:', error)
-    }
-  }
-
-  function handleCSVUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    if (!file) return
-    
-    const reader = new FileReader()
-    reader.onload = async (e) => {
-      const text = e.target?.result as string
-      const lines = text.split('\n').filter(line => line.trim())
-      const headers = lines[0].split(',').map(h => h.trim())
-      
-      const newOrders = lines.slice(1).map(line => {
-        const values = line.split(',').map(v => v.trim())
-        return {
-          customer_name: values[0] || '',
-          delivery_address: values[1] || '',
-          weight_kg: parseFloat(values[2]) || 0,
-          priority: parseInt(values[3]) || 1,
-          delivery_date: values[4] || new Date().toISOString().split('T')[0],
-          status: 'pending',
-          customer_phone: '+31612345678',
-          pickup_address: depotAddress
-        }
-      })
-      
+    const fetchData = async () => {
       try {
-        const { error } = await supabase
-          .from('orders')
-          .insert(newOrders)
-        
-        if (error) throw error
-        
-        setUploadStatus(`✅ ${newOrders.length} orders uploaded!`)
-        await loadOrders()
-        
-        setTimeout(() => setUploadStatus(''), 3000)
-      } catch (error) {
-        console.error('Error uploading CSV:', error)
-        setUploadStatus('❌ Upload failed')
+        const ordersData = await api.getOrders('pending')
+        setOrders(ordersData.orders || [])
+      } catch (err: any) {
+        console.error('Error fetching data:', err)
+        setError(err.message)
+      } finally {
+        setLoadingData(false)
       }
     }
-    
-    reader.readAsText(file)
-  }
 
-  const pendingOrders = orders.filter((o: any) => o.status === 'pending')
-  const totalWeight = orders.reduce((sum: number, o: any) => sum + (o.weight_kg || 0), 0)
+    fetchData()
+  }, [user])
 
-  if (loading) {
+  if (loading || loadingData) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-xl">Loading orders...</div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
       </div>
     )
   }
 
+  const pendingOrders = orders.length
+  const totalWeight = orders.reduce((sum: number, order: any) => sum + (order.weight_kg || 0), 0)
+
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center">
-              <Package className="w-7 h-7 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold">RouteGenius Admin</h1>
-              <p className="text-gray-500">Demo Dashboard</p>
-            </div>
+    <div className="min-h-screen bg-gray-50">
+      <DashboardHeader />
+
+      <div className="p-6">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Overview</h2>
+            <p className="text-sm text-gray-600">Real-time dashboard for {user?.company_name}</p>
           </div>
-          
           <div className="flex gap-3">
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg flex items-center gap-2 hover:bg-gray-50"
-            >
-              <Upload className="w-5 h-5" />
-              Upload CSV
+            <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+              📤 Upload CSV
             </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv"
-              onChange={handleCSVUpload}
-              className="hidden"
-            />
-            <button 
-              onClick={() => setShowNewOrderModal(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700"
-            >
-              <Plus className="w-5 h-5" />
-              Nieuwe Order
+            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              + Nieuwe Order
             </button>
           </div>
         </div>
 
-        {uploadStatus && (
-          <div className="mb-4 p-4 bg-blue-50 text-blue-800 rounded-lg">
-            {uploadStatus}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+            {error}
           </div>
         )}
 
-        <div className="grid grid-cols-4 gap-4 mb-8">
-          <div className="bg-white p-6 rounded-xl border">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600">Pending Orders</span>
-              <Package className="w-5 h-5 text-blue-600" />
-            </div>
-            <div className="text-3xl font-bold">{pendingOrders.length}</div>
-          </div>
-          <div className="bg-white p-6 rounded-xl border">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600">Total Weight</span>
-              <TrendingUp className="w-5 h-5 text-green-600" />
-            </div>
-            <div className="text-3xl font-bold">{totalWeight} kg</div>
-          </div>
-          <div className="bg-white p-6 rounded-xl border">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600">Active Routes</span>
-              <Truck className="w-5 h-5 text-purple-600" />
-            </div>
-            <div className="text-3xl font-bold">{routes.length}</div>
-          </div>
-          <div className="bg-white p-6 rounded-xl border">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600">Savings Today</span>
-              <Navigation className="w-5 h-5 text-orange-600" />
-            </div>
-            <div className="text-3xl font-bold text-green-600">
-              €{routes.reduce((sum, r) => sum + (r.fuel_cost_eur || 0) * 0.5, 0).toFixed(0)}
-            </div>
-          </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <DashboardCard
+            title="Pending Orders"
+            value={pendingOrders}
+            icon={Package}
+            trend={null}
+            color="blue"
+          />
+          <DashboardCard
+            title="Total Weight"
+            value={`${totalWeight} kg`}
+            icon={TrendingUp}
+            trend={null}
+            color="green"
+          />
+          <DashboardCard
+            title="Active Routes"
+            value="0"
+            icon={Truck}
+            trend={null}
+            color="purple"
+          />
+          <DashboardCard
+            title="Savings Today"
+            value="€0"
+            icon={DollarSign}
+            trend={null}
+            color="orange"
+          />
         </div>
 
-        <div className="bg-white rounded-xl border mb-8">
-          <div className="p-4 border-b flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Orders ({orders.length})</h2>
-            <button 
-              onClick={handleOptimizeRoutes}
-              disabled={optimizing || pendingOrders.length === 0}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2 font-semibold"
-            >
-              {optimizing ? 'Optimizing...' : 'Optimaliseer Routes'}
-            </button>
+        {/* Orders Table */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Orders ({pendingOrders})
+              </h3>
+              {pendingOrders > 0 && (
+                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                  🤖 Optimaliseer Routes
+                </button>
+              )}
+            </div>
           </div>
+
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Klant</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Adres</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gewicht</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prioriteit</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Datum</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {orders.map((order: any) => (
-                  <tr key={order.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm font-medium">{order.customer_name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{order.delivery_address}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{order.weight_kg} kg</td>
-                    <td className="px-6 py-4">
-                      <span className={order.priority === 1 ? 'text-red-600 font-medium' : 'text-yellow-600'}>
-                        {order.priority === 1 ? 'Hoog' : 'Normaal'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {new Date(order.delivery_date || order.created_at).toLocaleDateString('nl-NL')}
-                    </td>
+            {orders.length === 0 ? (
+              <div className="px-6 py-12 text-center">
+                <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No orders yet
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Upload a CSV or create your first order to get started
+                </p>
+                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                  + Create Order
+                </button>
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Customer
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Address
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Weight
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Priority
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Status
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {orders.map((order: any) => (
+                    <tr key={order.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {order.customer_name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {order.address}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {order.weight_kg} kg
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          order.priority >= 4 ? 'bg-red-100 text-red-800' :
+                          order.priority >= 2 ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {order.priority >= 4 ? 'Hoog' : order.priority >= 2 ? 'Normaal' : 'Laag'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {order.status}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
-
-        {routes.length > 0 && (
-          <div className="bg-white rounded-xl border">
-            <div className="p-4 border-b flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">Geoptimaliseerde Routes ({routes.length})</h2>
-                <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
-                  <Navigation className="w-4 h-4" />
-                  Vertrekpunt: {depotAddress}
-                </p>
-              </div>
-              <button className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 font-semibold">
-                <Navigation className="w-5 h-5" />
-                Verstuur naar Chauffeurs
-              </button>
-            </div>
-            <div className="p-6 space-y-6">
-              {routes.map((route, idx) => (
-                <div key={idx} className="bg-blue-50 rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="font-semibold text-lg">Route {idx + 1}</h3>
-                      <p className="text-sm text-gray-600">Chauffeur: {route.driver_name}</p>
-                    </div>
-                    <button onClick={() => setSelectedRoute(route)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5" />
-                      Preview Route
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-5 gap-4">
-                    <div>
-                      <div className="text-sm text-gray-600">Stops</div>
-                      <div className="text-2xl font-bold">{route.optimized_orders?.length || 0}</div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-gray-600">Afstand</div>
-                      <div className="text-2xl font-bold">{route.total_distance_km} km</div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-gray-600">Tijd</div>
-                      <div className="text-2xl font-bold">{Math.floor((route.total_time_minutes || 0) / 60)}u {Math.floor((route.total_time_minutes || 0) % 60)}m</div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-gray-600">Brandstof</div>
-                      <div className="text-2xl font-bold">€{route.fuel_cost_eur}</div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-gray-600 flex items-center gap-1">Bespaard! <span title="Besparing vs. aparte ritten (elke order = depot → klant → depot)" className="cursor-help">ℹ️</span></div>
-                      <div className="text-2xl font-bold text-green-600">€{route.savings_euro}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {showNewOrderModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-6 w-full max-w-md">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-semibold">Nieuwe Order</h3>
-                <button onClick={() => setShowNewOrderModal(false)}>
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Klant</label>
-                  <input
-                    type="text"
-                    value={newOrder.customer_name}
-                    onChange={(e) => setNewOrder({...newOrder, customer_name: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                    placeholder="Bedrijfsnaam"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Bezorgadres</label>
-                  <input
-                    type="text"
-                    value={newOrder.delivery_address}
-                    onChange={(e) => setNewOrder({...newOrder, delivery_address: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                    placeholder="Straat 123, Stad"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Gewicht (kg)</label>
-                    <input
-                      type="number"
-                      value={newOrder.weight_kg}
-                      onChange={(e) => setNewOrder({...newOrder, weight_kg: parseInt(e.target.value)})}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Prioriteit</label>
-                    <select
-                      value={newOrder.priority}
-                      onChange={(e) => setNewOrder({...newOrder, priority: parseInt(e.target.value)})}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                    >
-                      <option value={1}>Hoog</option>
-                      <option value={2}>Normaal</option>
-                    </select>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Bezorgdatum</label>
-                  <input
-                    type="date"
-                    value={newOrder.delivery_date}
-                    onChange={(e) => setNewOrder({...newOrder, delivery_date: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  />
-                </div>
-              </div>
-              
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => setShowNewOrderModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                >
-                  Annuleren
-                </button>
-                <button
-                  onClick={addNewOrder}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Toevoegen
-
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        {/* Preview Route Modal */}
-        {selectedRoute && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-xl font-semibold">Route Details</h3>
-                  <p className="text-sm text-gray-500">Chauffeur: {selectedRoute.driver_name}</p>
-                </div>
-                <button onClick={() => setSelectedRoute(null)}>
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              {/* Stats */}
-              <div className="grid grid-cols-4 gap-3 mb-6">
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <div className="text-xs text-gray-600">Stops</div>
-                  <div className="text-lg font-bold">{selectedRoute.optimized_orders?.length || 0}</div>
-                </div>
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <div className="text-xs text-gray-600">Afstand</div>
-                  <div className="text-lg font-bold">{selectedRoute.total_distance_km} km</div>
-                </div>
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <div className="text-xs text-gray-600">Tijd</div>
-                  <div className="text-lg font-bold">{Math.floor((selectedRoute.total_time_minutes || 0) / 60)}u {Math.floor((selectedRoute.total_time_minutes || 0) % 60)}m</div>
-                </div>
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <div className="text-xs text-gray-600">Brandstof</div>
-                  <div className="text-lg font-bold">€{selectedRoute.fuel_cost_eur}</div>
-                </div>
-              </div>
-
-              {/* Stops List */}
-              <div className="mb-6">
-                <h4 className="font-semibold mb-3">Route Stops</h4>
-                <div className="space-y-2">
-                  {/* Depot Start */}
-                  <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
-                    <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
-                      START
-                    </div>
-                    <div>
-                      <div className="font-medium">Depot</div>
-                      <div className="text-sm text-gray-600">{depotAddress}</div>
-                    </div>
-                  </div>
-
-                  {/* Delivery Stops */}
-                  {selectedRoute.optimized_orders?.map((order: any, idx: number) => (
-                    <div key={idx} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
-                        {idx + 1}
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium">{order.customer || order.customer_name}</div>
-                        <div className="text-sm text-gray-600">{order.address || order.delivery_address}</div>
-                        {order.weight_kg && (
-                          <div className="text-xs text-gray-500 mt-1">Gewicht: {order.weight_kg} kg</div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Depot End */}
-                  <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
-                    <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
-                      END
-                    </div>
-                    <div>
-                      <div className="font-medium">Terug naar Depot</div>
-                      <div className="text-sm text-gray-600">{depotAddress}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    const addresses = [
-                      depotAddress,
-                      ...(selectedRoute.optimized_orders?.map((o: any) => o.address || o.delivery_address) || []),
-                      depotAddress
-                    ].join(' / ')
-                    navigator.clipboard.writeText(addresses)
-                    alert('Route gekopieerd naar clipboard!')
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2"
-                >
-                  📋 Kopieer Route
-                </button>
-                <button
-                  onClick={() => {
-                    const waypoints = [
-                      depotAddress,
-                      ...(selectedRoute.optimized_orders?.map((o: any) => o.address || o.delivery_address) || []),
-                      depotAddress
-                    ].map(addr => encodeURIComponent(addr)).join('/')
-                    window.open(`https://www.google.com/maps/dir/${waypoints}`, '_blank')
-                  }}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
-                >
-                  🗺️ Open in Google Maps
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
