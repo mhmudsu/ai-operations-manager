@@ -20,6 +20,15 @@ export default function Dashboard() {
   })
   const [loading, setLoading] = useState(true)
 
+  // Dynamic greeting based on time
+  const getGreeting = () => {
+    const hour = new Date().getHours()
+    if (hour >= 5 && hour < 12) return 'Goedemorgen 👋'
+    if (hour >= 12 && hour < 18) return 'Goedemiddag ☀️'
+    if (hour >= 18 && hour < 23) return 'Goedenavond 🌙'
+    return 'Goedenacht 🌃'
+  }
+
   useEffect(() => {
     if (!user) return
 
@@ -82,7 +91,7 @@ export default function Dashboard() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Goedemorgen 👋
+  {getGreeting()}
           </h1>
           <p className="text-gray-600">
             {stats.activeRoutes > 0 
