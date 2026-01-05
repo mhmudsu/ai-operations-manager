@@ -7,6 +7,8 @@ import { LiveRouteCard } from '@/components/dashboard/LiveRouteCard'
 import { DashboardHeader } from '@/components/dashboard/Header'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { api } from '@/lib/api-client'
+import { CSVUpload } from '@/components/orders/CSVUpload'
+import { NewOrderModal } from '@/components/orders/NewOrderModal'
 
 // Transform backend route format to LiveRouteCard format
 function transformRoute(route: any, index: number) {
@@ -44,6 +46,8 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [optimizing, setOptimizing] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false)
+  const [showCSVUpload, setShowCSVUpload] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -264,10 +268,10 @@ export default function Dashboard() {
                 📦 Orders ({pendingOrders})
               </h3>
               <div className="flex gap-3">
-                <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-all hover:shadow">
+                <button onClick={() => setShowCSVUpload(!showCSVUpload)} className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-all hover:shadow">
                   📤 Upload CSV
                 </button>
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-all hover:shadow">
+                <button onClick={() => setShowNewOrderModal(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-all hover:shadow">
                   + Nieuwe Order
                 </button>
                 {pendingOrders > 0 && (
@@ -348,9 +352,31 @@ export default function Dashboard() {
                   ))}
                 </tbody>
               </table>
-            )}
+            )
+            }
           </div>
         </div>
+
+        {/* CSV Upload Section */}
+        {showCSVUpload && (
+          <div className="mb-8">
+            <CSVUpload 
+              onUploadComplete={() => {
+                setRefreshTrigger(prev => prev + 1)
+                setShowCSVUpload(false)
+              }}
+            />
+          </div>
+        )}
+
+        {/* New Order Modal */}
+        <NewOrderModal
+          isOpen={showNewOrderModal}
+          onClose={() => setShowNewOrderModal(false)}
+          onSuccess={() => {
+            setRefreshTrigger(prev => prev + 1)
+          }}
+        />
       </div>
     </div>
   )
