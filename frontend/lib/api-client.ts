@@ -6,7 +6,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL
 export async function apiFetch(endpoint: string, options: RequestInit = {}) {
   const token = getToken()
   
-  const headers: HeadersInit = {
+  const headers: any = {
     'Content-Type': 'application/json',
     ...options.headers,
   }
@@ -61,9 +61,15 @@ export const api = {
     body: JSON.stringify(orders)
   }),
   
+  
   // Routes
   createPlanning: (orders: any[]) => apiFetch('/api/planning/create', {
     method: 'POST',
     body: JSON.stringify({ orders })
   }),
+  
+  getRoutes: (status?: string) => {
+    const params = status ? `?status=${status}` : ''
+    return apiFetch(`/api/routes${params}`)
+  },
 }

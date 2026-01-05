@@ -8,67 +8,126 @@ import { DashboardHeader } from '@/components/dashboard/Header'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { api } from '@/lib/api-client'
 
+// Transform backend route format to LiveRouteCard format
+function transformRoute(route: any, index: number) {
+  const stops = route.stops || []
+  const completedStops = stops.filter((s: any) => s.status === 'completed').length
+  const nextStop = stops.find((s: any) => s.status !== 'completed')
+  
+  return {
+    id: route.id || `route-${index}`,
+    routeNumber: index + 1,
+    driver: route.driver_name || 'Onbekend',
+    completed: completedStops,
+    total: stops.length,
+    nextStop: nextStop?.address || stops[0]?.address || 'Geen stops',
+    eta: route.estimated_duration_minutes || 30,
+    status: (route.status === 'completed' ? 'completed' : 
+            route.status === 'delayed' ? 'delayed' : 'on-time') as 'on-time' | 'delayed' | 'completed'
+  }
+}
+
+// Dynamic greeting based on time
+function getGreeting() {
+  const hour = new Date().getHours()
+  if (hour >= 5 && hour < 12) return 'Goedemorgen 👋'
+  if (hour >= 12 && hour < 18) return 'Goedemiddag ☀️'
+  if (hour >= 18 && hour < 23) return 'Goedenavond 🌙'
+  return 'Goedenacht 🌃'
+}
+
 export default function Dashboard() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading } = useAuth()
   const [orders, setOrders] = useState([])
   const [routes, setRoutes] = useState([])
-  const [stats, setStats] = useState({
-    pendingOrders: 0,
-    activeRoutes: 0,
-    revenue: 0,
-    efficiency: 94
-  })
-  const [loading, setLoading] = useState(true)
-
-  // Dynamic greeting based on time
-  const getGreeting = () => {
-    const hour = new Date().getHours()
-    if (hour >= 5 && hour < 12) return 'Goedemorgen 👋'
-    if (hour >= 12 && hour < 18) return 'Goedemiddag ☀️'
-    if (hour >= 18 && hour < 23) return 'Goedenavond 🌙'
-    return 'Goedenacht 🌃'
-  }
+  const [loadingData, setLoadingData] = useState(true)
+  const [error, setError] = useState('')
+  const [optimizing, setOptimizing] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   useEffect(() => {
     if (!user) return
 
     const fetchData = async () => {
       try {
-        // Fetch pending orders
-        const pendingData = await api.getOrders('pending')
-        const allOrders = pendingData.orders || []
-        setOrders(allOrders)
-
-        // TODO: Fetch real routes from API when routes endpoint is ready
-        // const routesData = await api.getRoutes('active')
-        // setRoutes(routesData.routes || [])
-
-        // Calculate stats
-        const totalWeight = allOrders.reduce((sum: number, order: any) => 
-          sum + (order.weight_kg || 0), 0
+        setLoadingData(true)
+        
+        // Fetch orders AND routes
+        const [ordersData, routesData] = await Promise.all([
+          api.getOrders('pending'),
+          api.getRoutes()
+        ])
+        
+        setOrders(ordersData.orders || [])
+        
+        // Transform routes to LiveRouteCard format
+        const transformedRoutes = (routesData.routes || []).map((route: any, index: number) => 
+          transformRoute(route, index)
         )
         
-        setStats({
-          pendingOrders: allOrders.length,
-          activeRoutes: routes.length,
-          revenue: 0, // Will calculate from completed orders
-          efficiency: 94 // Will calculate from route performance
-        })
-      } catch (err) {
+        setRoutes(transformedRoutes)
+        
+      } catch (err: any) {
         console.error('Error fetching data:', err)
+        setError(err.message)
       } finally {
-        setLoading(false)
+        setLoadingData(false)
       }
     }
 
+    // Initial load
     fetchData()
     
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchData, 30000)
-    return () => clearInterval(interval)
-  }, [user, routes.length])
+    // Refresh on window focus (if >5 min since last)
+    let lastFetch = Date.now()
+    
+    const handleFocus = () => {
+      if (Date.now() - lastFetch > 300000) { // 5 min
+        fetchData()
+        lastFetch = Date.now()
+      }
+    }
+    
+    window.addEventListener('focus', handleFocus)
+    
+    // Cleanup
+    return () => window.removeEventListener('focus', handleFocus)
+    
+  }, [user, refreshTrigger])
 
-  if (authLoading || loading) {
+  const handleOptimizeRoutes = async () => {
+    if (orders.length === 0) return
+    
+    try {
+      setOptimizing(true)
+      setError('')
+      
+      console.log('🤖 Starting optimization with orders:', orders)
+      
+      // Call optimization API
+      const result = await api.createPlanning(orders)
+      
+      console.log('✅ Optimization result:', result)
+        
+      // Refresh routes after optimization
+      const routesData = await api.getRoutes()
+      const transformedRoutes = (routesData.routes || []).map((route: any, index: number) => 
+        transformRoute(route, index)
+      )
+      setRoutes(transformedRoutes)
+      
+      // Show success message
+      alert(`✅ ${result.saved_routes?.length || 0} routes geoptimaliseerd!`)
+      
+    } catch (err: any) {
+      console.error('Optimization error:', err)
+      setError(`Optimization failed: ${err.message}`)
+    } finally {
+      setOptimizing(false)
+    }
+  }
+
+  if (loading || loadingData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
@@ -79,73 +138,90 @@ export default function Dashboard() {
     )
   }
 
-  const totalWeight = orders.reduce((sum: number, order: any) => 
-    sum + (order.weight_kg || 0), 0
-  )
+  const pendingOrders = orders.length
+  const totalWeight = orders.reduce((sum: number, order: any) => sum + (order.weight_kg || 0), 0)
+  const activeRoutes = routes.length
+  
+  // Calculate realistic efficiency (only if we have routes)
+  const efficiency = activeRoutes > 0 ? 94 : 0
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <DashboardHeader />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-  {getGreeting()}
-          </h1>
-          <p className="text-gray-600">
-            {stats.activeRoutes > 0 
-              ? `Je hebt ${stats.activeRoutes} actieve routes vandaag`
-              : `Je hebt ${stats.pendingOrders} orders klaarstaan voor optimalisatie`
-            }
-          </p>
+      <div className="p-6">
+        {/* Welcome Section with Refresh Button */}
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-1">
+              {getGreeting()}
+            </h2>
+            <p className="text-gray-600">
+              {activeRoutes > 0 
+                ? `Je hebt ${activeRoutes} actieve routes vandaag`
+                : 'Geen actieve routes vandaag'
+              }
+            </p>
+          </div>
+          
+          {/* REFRESH BUTTON */}
+          <button
+            onClick={() => setRefreshTrigger(prev => prev + 1)}
+            disabled={loadingData}
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-all hover:shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            title="Ververs data"
+          >
+            <span className={loadingData ? 'animate-spin' : ''}>🔄</span>
+            {loadingData ? 'Bezig...' : 'Vernieuwen'}
+          </button>
         </div>
 
-        {/* Stats Grid */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <DashboardCard
             title="In behandeling"
-            value={stats.pendingOrders}
-            subtitle="orders"
+            value={pendingOrders}
             icon={Package}
             trend={null}
             color="blue"
           />
           <DashboardCard
             title="Actieve routes"
-            value={stats.activeRoutes}
-            subtitle="onderweg"
+            value={activeRoutes}
             icon={Truck}
             trend={null}
             color="purple"
           />
           <DashboardCard
             title="Omzet vandaag"
-            value={`€${stats.revenue}`}
-            subtitle=""
+            value="€0"
             icon={DollarSign}
-            trend={null}
-            color="green"
-          />
-          <DashboardCard
-            title="Efficiency"
-            value={`${stats.efficiency}%`}
-            subtitle=""
-            icon={TrendingUp}
             trend={null}
             color="orange"
           />
+          <DashboardCard
+            title="Efficiency"
+            value={efficiency > 0 ? `${efficiency}%` : '-'}
+            icon={TrendingUp}
+            trend={null}
+            color="green"
+          />
         </div>
 
-        {/* Live Routes Section - ONLY if routes exist */}
+        {/* Live Routes Section */}
         {routes.length > 0 ? (
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                <h2 className="text-xl font-bold text-gray-900">Live Routes</h2>
-              </div>
-              <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+              <h3 className="text-lg font-semibold text-gray-900">
+                🔴 Live Routes
+              </h3>
+              <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
                 Alles tonen →
               </button>
             </div>
@@ -156,40 +232,54 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-        ) : stats.pendingOrders > 0 ? (
+        ) : pendingOrders > 0 ? (
           /* Empty state - Encourage route optimization */
           <div className="mb-8 bg-white rounded-lg shadow-lg p-8">
             <div className="text-center max-w-md mx-auto">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <MapPin className="w-8 h-8 text-blue-600" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">
-                Klaar voor route optimalisatie
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Klaar om routes te optimaliseren?
               </h3>
-              <p className="text-gray-600 mb-6">
-                Je hebt {stats.pendingOrders} orders. Laat AI de meest efficiënte routes berekenen.
+              <p className="text-gray-600 mb-4">
+                Je hebt {pendingOrders} orders klaar staan. Laat AI je routes optimaliseren!
               </p>
-              <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-all hover:shadow-md">
-                🤖 Optimaliseer Routes
+              <button
+                onClick={handleOptimizeRoutes}
+                disabled={optimizing}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-all hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {optimizing ? '⚡ Optimaliseren...' : '🤖 Optimaliseer Routes'}
               </button>
             </div>
           </div>
         ) : null}
 
-        {/* Recent Orders Section */}
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Package className="w-5 h-5 text-gray-400" />
-              <h2 className="text-lg font-bold text-gray-900">Orders</h2>
-            </div>
-            <div className="flex gap-3">
-              <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-all hover:shadow">
-                📤 Upload CSV
-              </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-all hover:shadow">
-                + Nieuwe Order
-              </button>
+        {/* Orders Table */}
+        <div className="bg-white rounded-lg shadow-lg">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">
+                📦 Orders ({pendingOrders})
+              </h3>
+              <div className="flex gap-3">
+                <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-all hover:shadow">
+                  📤 Upload CSV
+                </button>
+                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-all hover:shadow">
+                  + Nieuwe Order
+                </button>
+                {pendingOrders > 0 && (
+                  <button
+                    onClick={handleOptimizeRoutes}
+                    disabled={optimizing}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-all hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {optimizing ? '⚡ Optimaliseren...' : '🤖 Optimaliseer Routes'}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -201,16 +291,11 @@ export default function Dashboard() {
                   Geen orders
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  Upload een CSV of maak je eerste order om te beginnen
+                  Upload een CSV of maak je eerste order
                 </p>
-                <div className="flex gap-3 justify-center">
-                  <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-                    📤 Upload CSV
-                  </button>
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                    + Nieuwe Order
-                  </button>
-                </div>
+                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-all hover:shadow">
+                  + Maak Order
+                </button>
               </div>
             ) : (
               <table className="min-w-full divide-y divide-gray-200">
@@ -224,6 +309,9 @@ export default function Dashboard() {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Gewicht
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Prioriteit
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
@@ -241,6 +329,15 @@ export default function Dashboard() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         {order.weight_kg} kg
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          order.priority >= 4 ? 'bg-red-100 text-red-800' :
+                          order.priority >= 2 ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {order.priority >= 4 ? 'Hoog' : order.priority >= 2 ? 'Normaal' : 'Laag'}
+                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
