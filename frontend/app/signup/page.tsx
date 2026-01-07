@@ -28,7 +28,7 @@ export default function SignupPage() {
         formData.companyName,
         formData.fullName
       )
-      router.push('/admin')
+      router.push('/')
     } catch (err: any) {
       setError(err.message)
     } finally {

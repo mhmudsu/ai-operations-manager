@@ -15,41 +15,36 @@ export interface AuthResponse {
   user: User
 }
 
-// Get stored token
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null
   return localStorage.getItem(TOKEN_KEY)
 }
 
-// Get stored user
 export function getUser(): User | null {
   if (typeof window === 'undefined') return null
   const userStr = localStorage.getItem(USER_KEY)
   return userStr ? JSON.parse(userStr) : null
 }
 
-// Save auth data
 export function saveAuth(data: AuthResponse): void {
   if (typeof window === 'undefined') return
   localStorage.setItem(TOKEN_KEY, data.access_token)
   localStorage.setItem(USER_KEY, JSON.stringify(data.user))
 }
 
-// Clear auth data
 export function clearAuth(): void {
   if (typeof window === 'undefined') return
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(USER_KEY)
 }
 
-// Check if user is authenticated
 export function isAuthenticated(): boolean {
   return !!getToken()
 }
 
-// Signup
 export async function signup(email: string, password: string, companyName: string, fullName: string): Promise<AuthResponse> {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/signup`, {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL + '/api/auth/signup'
+  const response = await fetch(apiUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -70,9 +65,9 @@ export async function signup(email: string, password: string, companyName: strin
   return data
 }
 
-// Login
 export async function login(email: string, password: string): Promise<AuthResponse> {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL + '/api/auth/login'
+  const response = await fetch(apiUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password })
@@ -88,7 +83,6 @@ export async function login(email: string, password: string): Promise<AuthRespon
   return data
 }
 
-// Logout
 export function logout(): void {
   clearAuth()
   if (typeof window !== 'undefined') {
