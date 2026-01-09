@@ -129,6 +129,9 @@ export default function Dashboard() {
       )
       setRoutes(transformedRoutes)
       
+      // Refresh orders to show updated status
+      setRefreshTrigger(prev => prev + 1)
+      
       // Show success message
       alert(`✅ ${result.saved_routes?.length || 0} routes geoptimaliseerd!`)
       
