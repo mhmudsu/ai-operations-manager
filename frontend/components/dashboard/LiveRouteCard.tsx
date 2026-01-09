@@ -1,5 +1,8 @@
+import { Trash2 } from 'lucide-react'
+
 interface LiveRouteCardProps {
   route: {
+    id: string
     routeNumber: number
     driver: string
     completed: number
@@ -8,9 +11,11 @@ interface LiveRouteCardProps {
     eta: number
     status: 'on-time' | 'delayed' | 'completed'
   }
+  onClick?: () => void
+  onDelete?: () => void
 }
 
-export function LiveRouteCard({ route }: LiveRouteCardProps) {
+export function LiveRouteCard({ route, onClick, onDelete }: LiveRouteCardProps) {
   const { routeNumber, driver, completed, total, nextStop, eta, status } = route
   const progress = (completed / total) * 100
   
@@ -26,8 +31,28 @@ export function LiveRouteCard({ route }: LiveRouteCardProps) {
     'completed': 'Compleet',
   }
   
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (confirm(`Weet je zeker dat je Route ${routeNumber} wilt verwijderen?`)) {
+      onDelete?.()
+    }
+  }
+  
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg hover:border-blue-300 transition-all duration-200">
+    <div 
+      onClick={onClick}
+      className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg hover:border-blue-300 transition-all duration-200 cursor-pointer relative"
+    >
+      {onDelete && (
+        <button
+          onClick={handleDelete}
+          className="absolute top-3 right-3 p-2 hover:bg-red-50 rounded-lg transition-colors group"
+          title="Verwijder route"
+        >
+          <Trash2 className="w-4 h-4 text-gray-400 group-hover:text-red-600" />
+        </button>
+      )}
+      
       <div className="flex items-start justify-between mb-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -43,7 +68,7 @@ export function LiveRouteCard({ route }: LiveRouteCardProps) {
           </p>
         </div>
         
-        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${statusStyles[status]}`}>
+        <span className={'px-3 py-1 rounded-full text-xs font-medium border ' + statusStyles[status]}>
           {statusLabels[status]}
         </span>
       </div>

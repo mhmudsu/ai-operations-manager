@@ -143,6 +143,17 @@ export default function Dashboard() {
     }
   }
 
+
+  const handleDeleteRoute = async (routeId: string) => {
+    try {
+      await api.deleteRoute(routeId)
+      // Refresh routes
+      setRefreshTrigger(prev => prev + 1)
+    } catch (err: any) {
+      console.error("Delete route error:", err)
+      alert("Fout bij verwijderen route: " + err.message)
+    }
+  }
   if (loading || loadingData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -248,6 +259,7 @@ export default function Dashboard() {
                   key={route.id} 
                   route={route}
                   onClick={() => setSelectedRouteId(route.id)}
+                  onDelete={() => handleDeleteRoute(route.id)}
                 />
               ))}
             </div>
