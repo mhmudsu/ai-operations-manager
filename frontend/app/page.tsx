@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { Truck, Package, DollarSign, TrendingUp, MapPin } from 'lucide-react'
+import { Truck, Package, DollarSign, TrendingUp, MapPin, Trash2 } from 'lucide-react'
 import { DashboardCard } from '@/components/dashboard/DashboardCard'
 import { LiveRouteCard } from '@/components/dashboard/LiveRouteCard'
 import { RouteModal } from '@/components/dashboard/RouteModal'
@@ -152,6 +152,17 @@ export default function Dashboard() {
     } catch (err: any) {
       console.error("Delete route error:", err)
       alert("Fout bij verwijderen route: " + err.message)
+
+  const handleDeleteOrder = async (orderId: number) => {
+    if (!confirm("Weet je zeker dat je deze order wilt verwijderen?")) return
+    try {
+      await api.deleteOrder(orderId)
+      setRefreshTrigger(prev => prev + 1)
+    } catch (err: any) {
+      console.error("Delete order error:", err)
+      alert("Fout bij verwijderen: " + err.message)
+    }
+  }
     }
   }
   if (loading || loadingData) {
@@ -347,6 +358,8 @@ export default function Dashboard() {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Acties
                     </th>
                   </tr>
                 </thead>
@@ -374,6 +387,15 @@ export default function Dashboard() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
                           {order.status}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <button
+                          onClick={() => handleDeleteOrder(order.id)}
+                          className="p-1 hover:bg-red-50 rounded transition-colors"
+                          title="Verwijder order"
+                        >
+                          <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-600" />
+                        </button>
+                      </td>
                         </span>
                       </td>
                     </tr>
