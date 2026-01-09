@@ -388,6 +388,8 @@ export default function Dashboard() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
                           {order.status}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <button
                           onClick={() => handleDeleteOrder(order.id)}
@@ -396,8 +398,6 @@ export default function Dashboard() {
                         >
                           <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-600" />
                         </button>
-                      </td>
-                        </span>
                       </td>
                     </tr>
                   ))}
