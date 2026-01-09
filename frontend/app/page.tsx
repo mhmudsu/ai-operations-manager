@@ -152,6 +152,8 @@ export default function Dashboard() {
     } catch (err: any) {
       console.error("Delete route error:", err)
       alert("Fout bij verwijderen route: " + err.message)
+    }
+  }
 
   const handleDeleteOrder = async (orderId: number) => {
     if (!confirm("Weet je zeker dat je deze order wilt verwijderen?")) return
@@ -161,8 +163,6 @@ export default function Dashboard() {
     } catch (err: any) {
       console.error("Delete order error:", err)
       alert("Fout bij verwijderen: " + err.message)
-    }
-  }
     }
   }
   if (loading || loadingData) {
