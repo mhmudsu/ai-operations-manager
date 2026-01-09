@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Truck, Package, DollarSign, TrendingUp, MapPin } from 'lucide-react'
 import { DashboardCard } from '@/components/dashboard/DashboardCard'
 import { LiveRouteCard } from '@/components/dashboard/LiveRouteCard'
+import { RouteModal } from '@/components/dashboard/RouteModal'
 import { DashboardHeader } from '@/components/dashboard/Header'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { api } from '@/lib/api-client'
@@ -48,6 +49,14 @@ export default function Dashboard() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [showNewOrderModal, setShowNewOrderModal] = useState(false)
   const [showCSVUpload, setShowCSVUpload] = useState(false)
+  const csvUploadRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (showCSVUpload && csvUploadRef.current) {
+      csvUploadRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [showCSVUpload])
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -232,7 +241,11 @@ export default function Dashboard() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {routes.map((route: any) => (
-                <LiveRouteCard key={route.id} route={route} />
+                <LiveRouteCard 
+                  key={route.id} 
+                  route={route}
+                  onClick={() => setSelectedRouteId(route.id)}
+                />
               ))}
             </div>
           </div>
@@ -352,14 +365,13 @@ export default function Dashboard() {
                   ))}
                 </tbody>
               </table>
-            )
-            }
+            )}
           </div>
         </div>
 
         {/* CSV Upload Section */}
         {showCSVUpload && (
-          <div className="mb-8">
+          <div ref={csvUploadRef} className="mb-8">
             <CSVUpload 
               onUploadComplete={() => {
                 setRefreshTrigger(prev => prev + 1)
@@ -376,6 +388,13 @@ export default function Dashboard() {
           onSuccess={() => {
             setRefreshTrigger(prev => prev + 1)
           }}
+        />
+
+        {/* Route Details Modal */}
+        <RouteModal
+          isOpen={!!selectedRouteId}
+          onClose={() => setSelectedRouteId(null)}
+          routeId={selectedRouteId || ''}
         />
       </div>
     </div>
