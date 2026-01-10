@@ -42,6 +42,8 @@ function getGreeting() {
 export default function Dashboard() {
   const { user, loading } = useAuth()
   const [orders, setOrders] = useState([])
+  const [stats, setStats] = useState<any>(null)
+  const [statsPeriod, setStatsPeriod] = useState("today")
   const [routes, setRoutes] = useState([])
   const [loadingData, setLoadingData] = useState(true)
   const [error, setError] = useState('')
@@ -66,9 +68,10 @@ export default function Dashboard() {
         setLoadingData(true)
         
         // Fetch orders AND routes
-        const [ordersData, routesData] = await Promise.all([
+        const [ordersData, routesData, statsData] = await Promise.all([
           api.getOrders('pending'),
-          api.getRoutes()
+          api.getRoutes(),
+          api.getStats(statsPeriod),
         ])
         
         setOrders(ordersData.orders || [])
@@ -79,6 +82,7 @@ export default function Dashboard() {
         )
         
         setRoutes(transformedRoutes)
+        setStats(statsData?.stats || null)
         
       } catch (err: any) {
         console.error('Error fetching data:', err)
@@ -106,7 +110,7 @@ export default function Dashboard() {
     // Cleanup
     return () => window.removeEventListener('focus', handleFocus)
     
-  }, [user, refreshTrigger])
+  }, [user, refreshTrigger, statsPeriod])
 
   const handleOptimizeRoutes = async () => {
     if (orders.length === 0) return
@@ -176,8 +180,6 @@ export default function Dashboard() {
     )
   }
 
-  const pendingOrders = orders.length
-  const totalWeight = orders.reduce((sum: number, order: any) => sum + (order.weight_kg || 0), 0)
   const activeRoutes = routes.length
   
   // Calculate realistic efficiency (only if we have routes)
@@ -221,6 +223,23 @@ export default function Dashboard() {
         )}
 
         {/* Stats Cards */}
+        {/* Period Selector */}
+        <div className="mb-6 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Overzicht</h3>
+          <select
+            value={statsPeriod}
+            onChange={(e) => setStatsPeriod(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="today">Vandaag</option>
+            <option value="week">Deze week</option>
+            <option value="month">Deze maand</option>
+            <option value="3months">3 maanden</option>
+            <option value="6months">6 maanden</option>
+            <option value="12months">12 maanden</option>
+          </select>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <DashboardCard
             title="In behandeling"
@@ -238,14 +257,14 @@ export default function Dashboard() {
           />
           <DashboardCard
             title="Omzet vandaag"
-            value="€0"
+            value={stats ? `€${stats.revenue}` : "€0"}
             icon={DollarSign}
             trend={null}
             color="orange"
           />
           <DashboardCard
             title="Efficiency"
-            value={efficiency > 0 ? `${efficiency}%` : '-'}
+            value={stats?.efficiency ? `${stats.efficiency}%` : "-"}
             icon={TrendingUp}
             trend={null}
             color="green"

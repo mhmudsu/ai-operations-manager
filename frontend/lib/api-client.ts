@@ -40,4 +40,5 @@ export const api = {
   createPlanning: (orders: any[]) => apiFetch('/api/planning/create', { method: 'POST', body: JSON.stringify({ orders }) }),
   getRoutes: (status?: string) => apiFetch('/api/routes' + (status ? '?status=' + status : '')),
   deleteRoute: (routeId: string) => apiFetch('/api/routes/' + routeId, { method: 'DELETE' }),
+  getStats: (period?: string) => apiFetch('/api/stats?period=' + (period || 'today')),
 }
