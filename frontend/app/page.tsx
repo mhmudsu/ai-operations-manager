@@ -181,6 +181,7 @@ export default function Dashboard() {
   }
 
   const activeRoutes = routes.length
+  const pendingOrders = orders.length
   
   // Calculate realistic efficiency (only if we have routes)
   const efficiency = activeRoutes > 0 ? 94 : 0
