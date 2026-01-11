@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { api } from '@/lib/api-client'
-import { TrendingUp, Users, MapPin, Award } from 'lucide-react'
+import { TrendingUp, Users, MapPin, Award, DollarSign } from 'lucide-react'
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 export default function AnalyticsPage() {
   const { user, loading } = useAuth()
   const [routesHistory, setRoutesHistory] = useState<any[]>([])
   const [driverPerformance, setDriverPerformance] = useState<any[]>([])
+  const [savingsTimeline, setSavingsTimeline] = useState<any[]>([])
   const [period, setPeriod] = useState('month')
   const [loadingData, setLoadingData] = useState(true)
 
@@ -18,13 +20,15 @@ export default function AnalyticsPage() {
     const fetchData = async () => {
       try {
         setLoadingData(true)
-        const [historyData, performanceData] = await Promise.all([
+        const [historyData, performanceData, timelineData] = await Promise.all([
           api.getRoutesHistory({ limit: 50 }),
-          api.getDriverPerformance(period)
+          api.getDriverPerformance(period),
+          api.getSavingsTimeline(period)
         ])
         
         setRoutesHistory(historyData.routes || [])
         setDriverPerformance(performanceData.drivers || [])
+        setSavingsTimeline(timelineData.timeline || [])
       } catch (err: any) {
         console.error('Error fetching analytics:', err)
       } finally {
@@ -46,6 +50,11 @@ export default function AnalyticsPage() {
     )
   }
 
+  // Calculate totals for summary cards
+  const totalSavings = savingsTimeline.reduce((sum, day) => sum + day.savings, 0)
+  const totalDistance = savingsTimeline.reduce((sum, day) => sum + day.distance, 0)
+  const totalRoutes = savingsTimeline.reduce((sum, day) => sum + day.routes, 0)
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="p-6">
@@ -61,7 +70,6 @@ export default function AnalyticsPage() {
             onChange={(e) => setPeriod(e.target.value)}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
           >
-            <option value="today">Vandaag</option>
             <option value="week">Deze week</option>
             <option value="month">Deze maand</option>
             <option value="3months">3 maanden</option>
@@ -70,7 +78,98 @@ export default function AnalyticsPage() {
           </select>
         </div>
 
-        {/* Driver Performance */}
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-green-100 rounded-lg">
+                <DollarSign className="w-6 h-6 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Totale Besparingen</p>
+                <p className="text-2xl font-bold text-gray-900">€{totalSavings.toFixed(2)}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <MapPin className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Totale Afstand</p>
+                <p className="text-2xl font-bold text-gray-900">{totalDistance.toFixed(0)} km</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <TrendingUp className="w-6 h-6 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Totale Routes</p>
+                <p className="text-2xl font-bold text-gray-900">{totalRoutes}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          {/* Savings Over Time */}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Besparingen Over Tijd</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={savingsTimeline}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fontSize: 12 }}
+                  tickFormatter={(value) => {
+                    const date = new Date(value)
+                    return date.getDate() + '/' + (date.getMonth() + 1)
+                  }}
+                />
+                <YAxis />
+                <Tooltip 
+                  formatter={(value: any) => '€' + value}
+                  labelFormatter={(label) => {
+                    const date = new Date(label)
+                    return date.toLocaleDateString('nl-NL')
+                  }}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="savings" 
+                  stroke="#10b981" 
+                  strokeWidth={2}
+                  name="Besparingen (€)"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Driver Performance Bar Chart */}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">KM per Chauffeur</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={driverPerformance}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="driver_name" tick={{ fontSize: 12 }} />
+                <YAxis />
+                <Tooltip formatter={(value: any) => value + ' km'} />
+                <Legend />
+                <Bar dataKey="total_distance_km" fill="#3b82f6" name="Totale KM" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Driver Performance Table */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
           <div className="flex items-center gap-2 mb-6">
             <Users className="w-6 h-6 text-blue-600" />
