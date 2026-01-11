@@ -41,4 +41,14 @@ export const api = {
   getRoutes: (status?: string) => apiFetch('/api/routes' + (status ? '?status=' + status : '')),
   deleteRoute: (routeId: string) => apiFetch('/api/routes/' + routeId, { method: 'DELETE' }),
   getStats: (period?: string) => apiFetch('/api/stats?period=' + (period || 'today')),
+  getRoutesHistory: (filters?: any) => {
+    const params = new URLSearchParams()
+    if (filters?.start_date) params.append('start_date', filters.start_date)
+    if (filters?.end_date) params.append('end_date', filters.end_date)
+    if (filters?.driver_id) params.append('driver_id', filters.driver_id)
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.limit) params.append('limit', filters.limit)
+    return apiFetch('/api/analytics/routes-history?' + params.toString())
+  },
+  getDriverPerformance: (period?: string) => apiFetch('/api/analytics/driver-performance?period=' + (period || 'month')),
 }
