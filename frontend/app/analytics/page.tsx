@@ -1,5 +1,6 @@
 'use client'
 
+import { DashboardHeader } from '@/components/dashboard/Header'
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { api } from '@/lib/api-client'
@@ -57,6 +58,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <DashboardHeader />
       <div className="p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
