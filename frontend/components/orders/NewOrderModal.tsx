@@ -13,6 +13,7 @@ export function NewOrderModal({ isOpen, onClose, onSuccess }: NewOrderModalProps
   const [formData, setFormData] = useState({
     customer_name: '',
     address: '',
+    phone: '',
     weight_kg: '',
     priority: '1',
     notes: ''
@@ -49,6 +50,7 @@ export function NewOrderModal({ isOpen, onClose, onSuccess }: NewOrderModalProps
         body: JSON.stringify({
           customer_name: formData.customer_name,
           address: formData.address,
+          phone: formData.phone || null,
           weight_kg: parseFloat(formData.weight_kg) || 0,
           priority: parseInt(formData.priority) || 1,
           notes: formData.notes
@@ -63,6 +65,7 @@ export function NewOrderModal({ isOpen, onClose, onSuccess }: NewOrderModalProps
       setFormData({
         customer_name: '',
         address: '',
+        phone: '',
         weight_kg: '',
         priority: '1',
         notes: ''
@@ -141,6 +144,24 @@ export function NewOrderModal({ isOpen, onClose, onSuccess }: NewOrderModalProps
               placeholder="Straat 123, 1234 AB Stad"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              WhatsApp Nummer
+              <span className="text-xs text-gray-500 ml-2">(optioneel - voor notificaties)</span>
+            </label>
+            <input
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              placeholder="+31612345678"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              📱 Klant krijgt WhatsApp wanneer chauffeur onderweg is
+            </p>
           </div>
 
           <div>
