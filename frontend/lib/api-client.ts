@@ -52,4 +52,5 @@ export const api = {
   },
   getDriverPerformance: (period?: string) => apiFetch('/api/analytics/driver-performance?period=' + (period || 'month')),
   getSavingsTimeline: (period?: string) => apiFetch('/api/analytics/savings-timeline?period=' + (period || 'month')),
+  notifyCustomers: (routeId: string) => apiFetch('/api/routes/' + routeId + '/notify-customers', { method: 'POST' }),
 }

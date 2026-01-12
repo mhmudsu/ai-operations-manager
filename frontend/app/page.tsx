@@ -159,6 +159,16 @@ export default function Dashboard() {
     }
   }
 
+  const handleNotifyCustomers = async (routeId: string) => {
+    try {
+      const result = await api.notifyCustomers(routeId)
+      alert(`✅ ${result.sent} klanten genotificeerd!`)
+    } catch (err: any) {
+      console.error("Notify error:", err)
+      alert("Fout bij notificeren: " + err.message)
+    }
+  }
+
   const handleDeleteOrder = async (orderId: number) => {
     if (!confirm("Weet je zeker dat je deze order wilt verwijderen?")) return
     try {
@@ -290,6 +300,7 @@ export default function Dashboard() {
                   key={route.id} 
                   route={route}
                   onClick={() => setSelectedRouteId(route.id)}
+                  onNotifyCustomers={() => handleNotifyCustomers(route.id)}
                   onDelete={() => handleDeleteRoute(route.id)}
                 />
               ))}
