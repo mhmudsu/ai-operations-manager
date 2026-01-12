@@ -49,8 +49,8 @@ export default function DriversPage() {
   const handleDelete = async (driverId: number) => {
     if (!confirm('Weet je zeker dat je deze chauffeur wilt verwijderen?')) return
     try {
-      // We'll add delete endpoint later
-      alert('Delete functionaliteit komt binnenkort')
+      await api.deleteDriver(driverId)
+      fetchDrivers()
     } catch (err: any) {
       alert('Error: ' + err.message)
     }
@@ -146,6 +146,7 @@ export default function DriversPage() {
                       <button
                         onClick={() => handleDelete(driver.id)}
                         className="text-red-600 hover:text-red-800"
+                        title="Verwijder chauffeur"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -206,6 +207,7 @@ export default function DriversPage() {
                   type="button"
                   onClick={() => setShowAddModal(false)}
                   className="flex-1 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  disabled={saving}
                 >
                   Annuleren
                 </button>

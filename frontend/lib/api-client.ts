@@ -33,6 +33,7 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
 export const api = {
   getDrivers: () => apiFetch('/api/drivers'),
   createDriver: (data: any) => apiFetch('/api/drivers', { method: 'POST', body: JSON.stringify(data) }),
+  deleteDriver: (driverId: number) => apiFetch('/api/drivers/' + driverId, { method: 'DELETE' }),
   getOrders: (status?: string) => apiFetch('/api/orders' + (status ? '?status=' + status : '')),
   createOrder: (data: any) => apiFetch('/api/orders', { method: 'POST', body: JSON.stringify(data) }),
   bulkCreateOrders: (orders: any[]) => apiFetch('/api/orders/bulk', { method: 'POST', body: JSON.stringify(orders) }),
