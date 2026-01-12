@@ -1,6 +1,6 @@
 'use client'
 import { useAuth } from '@/components/auth/AuthProvider'
-import { LogOut, User, BarChart3, Home } from 'lucide-react'
+import { LogOut, User, BarChart3, Home, Users } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -44,6 +44,17 @@ export function DashboardHeader() {
             >
               <BarChart3 className="w-4 h-4" />
               Analytics
+            </Link>
+            <Link 
+              href="/drivers"
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                pathname === '/drivers' 
+                  ? 'bg-blue-100 text-blue-700 font-medium' 
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              Chauffeurs
             </Link>
           </nav>
         </div>
