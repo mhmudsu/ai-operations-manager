@@ -4,13 +4,14 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { DashboardHeader } from '@/components/dashboard/Header'
 import { api } from '@/lib/api-client'
-import { Users, Plus, Trash2, Phone, Mail } from 'lucide-react'
+import { Users, Plus, Trash2, Phone, Mail, Edit2 } from 'lucide-react'
 
 export default function DriversPage() {
   const { user, loading } = useAuth()
   const [drivers, setDrivers] = useState<any[]>([])
   const [loadingData, setLoadingData] = useState(true)
-  const [showAddModal, setShowAddModal] = useState(false)
+  const [showModal, setShowModal] = useState(false)
+  const [editingDriver, setEditingDriver] = useState<any>(null)
   const [formData, setFormData] = useState({ name: '', phone: '', email: '' })
   const [saving, setSaving] = useState(false)
 
@@ -31,13 +32,34 @@ export default function DriversPage() {
     }
   }
 
-  const handleAddDriver = async (e: React.FormEvent) => {
+  const openAddModal = () => {
+    setEditingDriver(null)
+    setFormData({ name: '', phone: '', email: '' })
+    setShowModal(true)
+  }
+
+  const openEditModal = (driver: any) => {
+    setEditingDriver(driver)
+    setFormData({ 
+      name: driver.name, 
+      phone: driver.phone || '', 
+      email: driver.email || '' 
+    })
+    setShowModal(true)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       setSaving(true)
-      await api.createDriver(formData)
+      if (editingDriver) {
+        await api.updateDriver(editingDriver.id, formData)
+      } else {
+        await api.createDriver(formData)
+      }
       setFormData({ name: '', phone: '', email: '' })
-      setShowAddModal(false)
+      setShowModal(false)
+      setEditingDriver(null)
       fetchDrivers()
     } catch (err: any) {
       alert('Error: ' + err.message)
@@ -75,7 +97,7 @@ export default function DriversPage() {
             <p className="text-gray-600">Beheer je chauffeurs en hun gegevens</p>
           </div>
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={openAddModal}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-5 h-5" />
@@ -91,7 +113,7 @@ export default function DriversPage() {
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Geen chauffeurs</h3>
               <p className="text-gray-600 mb-4">Voeg je eerste chauffeur toe om te beginnen</p>
               <button
-                onClick={() => setShowAddModal(true)}
+                onClick={openAddModal}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Voeg Chauffeur Toe
@@ -143,13 +165,22 @@ export default function DriversPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => handleDelete(driver.id)}
-                        className="text-red-600 hover:text-red-800"
-                        title="Verwijder chauffeur"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => openEditModal(driver)}
+                          className="text-blue-600 hover:text-blue-800"
+                          title="Bewerk chauffeur"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(driver.id)}
+                          className="text-red-600 hover:text-red-800"
+                          title="Verwijder chauffeur"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -159,14 +190,16 @@ export default function DriversPage() {
         </div>
       </div>
 
-      {/* Add Driver Modal */}
-      {showAddModal && (
+      {/* Add/Edit Driver Modal */}
+      {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
             <div className="p-6 border-b">
-              <h2 className="text-xl font-bold text-gray-900">Nieuwe Chauffeur</h2>
+              <h2 className="text-xl font-bold text-gray-900">
+                {editingDriver ? 'Bewerk Chauffeur' : 'Nieuwe Chauffeur'}
+              </h2>
             </div>
-            <form onSubmit={handleAddDriver} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Naam *</label>
                 <input
@@ -205,7 +238,10 @@ export default function DriversPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {
+                    setShowModal(false)
+                    setEditingDriver(null)
+                  }}
                   className="flex-1 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"
                   disabled={saving}
                 >
