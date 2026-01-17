@@ -1,4 +1,8 @@
-const TOKEN_KEY = 'routegenius_token'
+// Railway API URL
+const API_URL = 'https://routeplan-production.up.railway.app/api'
+
+// Use same token key as lib/api.ts for consistency
+const TOKEN_KEY = 'jwt_token'
 const USER_KEY = 'routegenius_user'
 
 export interface User {
@@ -43,8 +47,7 @@ export function isAuthenticated(): boolean {
 }
 
 export async function signup(email: string, password: string, companyName: string, fullName: string): Promise<AuthResponse> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL + '/api/auth/signup'
-  const response = await fetch(apiUrl, {
+  const response = await fetch(`${API_URL}/auth/signup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -66,8 +69,7 @@ export async function signup(email: string, password: string, companyName: strin
 }
 
 export async function login(email: string, password: string): Promise<AuthResponse> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL + '/api/auth/login'
-  const response = await fetch(apiUrl, {
+  const response = await fetch(`${API_URL}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password })

@@ -1,6 +1,6 @@
 'use client'
 import { useAuth } from '@/components/auth/AuthProvider'
-import { LogOut, User, BarChart3, Home, Users } from 'lucide-react'
+import { LogOut, User, BarChart3, Home, Users, Settings } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -55,6 +55,17 @@ export function DashboardHeader() {
             >
               <Users className="w-4 h-4" />
               Chauffeurs
+            </Link>
+            <Link 
+              href="/settings"
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                pathname === '/settings' 
+                  ? 'bg-blue-100 text-blue-700 font-medium' 
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              Settings
             </Link>
           </nav>
         </div>

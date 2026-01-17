@@ -4,31 +4,13 @@ import { useEffect, useState, useRef } from 'react'
 import { Truck, Package, DollarSign, TrendingUp, MapPin, Trash2 } from 'lucide-react'
 import { DashboardCard } from '@/components/dashboard/DashboardCard'
 import { LiveRouteCard } from '@/components/dashboard/LiveRouteCard'
+import { SkippedStopsModal } from '@/components/dashboard/SkippedStopsModal'
 import { RouteModal } from '@/components/dashboard/RouteModal'
 import { DashboardHeader } from '@/components/dashboard/Header'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { api } from '@/lib/api-client'
 import { CSVUpload } from '@/components/orders/CSVUpload'
 import { NewOrderModal } from '@/components/orders/NewOrderModal'
-
-// Transform backend route format to LiveRouteCard format
-function transformRoute(route: any, index: number) {
-  const stops = route.stops || []
-  const completedStops = stops.filter((s: any) => s.status === 'completed').length
-  const nextStop = stops.find((s: any) => s.status !== 'completed')
-  
-  return {
-    id: route.id || `route-${index}`,
-    routeNumber: index + 1,
-    driver: route.driver_name || 'Onbekend',
-    completed: completedStops,
-    total: stops.length,
-    nextStop: nextStop?.address || stops[0]?.address || 'Geen stops',
-    eta: route.estimated_duration_minutes || 30,
-    status: (route.status === 'completed' ? 'completed' : 
-            route.status === 'delayed' ? 'delayed' : 'on-time') as 'on-time' | 'delayed' | 'completed'
-  }
-}
 
 // Dynamic greeting based on time
 function getGreeting() {
@@ -59,6 +41,7 @@ export default function Dashboard() {
     }
   }, [showCSVUpload])
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
+  const [showSkippedModal, setShowSkippedModal] = useState<any>(null)
 
   useEffect(() => {
     if (!user) return
@@ -76,12 +59,8 @@ export default function Dashboard() {
         
         setOrders(ordersData.orders || [])
         
-        // Transform routes to LiveRouteCard format
-        const transformedRoutes = (routesData.routes || []).map((route: any, index: number) => 
-          transformRoute(route, index)
-        )
-        
-        setRoutes(transformedRoutes)
+        // Use original route data (no transform needed)
+        setRoutes(routesData.routes || [])
         setStats(statsData?.stats || null)
         
       } catch (err: any) {
@@ -128,10 +107,7 @@ export default function Dashboard() {
         
       // Refresh routes after optimization
       const routesData = await api.getRoutes()
-      const transformedRoutes = (routesData.routes || []).map((route: any, index: number) => 
-        transformRoute(route, index)
-      )
-      setRoutes(transformedRoutes)
+      setRoutes([newRoute, ...routes])
       
       // Refresh orders to show updated status
       setRefreshTrigger(prev => prev + 1)
@@ -158,6 +134,19 @@ export default function Dashboard() {
       alert("Fout bij verwijderen route: " + err.message)
     }
   }
+
+  const handleManageSkipped = (route: any) => {
+  setShowSkippedModal(route)
+}
+
+const handleSkippedActionComplete = () => {
+  // Refresh data after reschedule/delete
+  setShowSkippedModal(null)
+  // Trigger data refresh
+  if (user) {
+    fetchData()
+  }
+}
 
   const handleNotifyCustomers = async (routeId: string) => {
     try {
@@ -195,6 +184,9 @@ export default function Dashboard() {
   
   // Calculate realistic efficiency (only if we have routes)
   const efficiency = activeRoutes > 0 ? 94 : 0
+
+// Check if we should show empty state
+  const hasPendingOrders = pendingOrders > 0
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -297,16 +289,17 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {routes.map((route: any) => (
                 <LiveRouteCard 
-                  key={route.id} 
-                  route={route}
-                  onClick={() => setSelectedRouteId(route.id)}
-                  onNotifyCustomers={() => handleNotifyCustomers(route.id)}
-                  onDelete={() => handleDeleteRoute(route.id)}
-                />
-              ))}
-            </div>
+                key={route.id} 
+                route={route}
+                onClick={() => setSelectedRouteId(route.id)}
+                onNotifyCustomers={() => handleNotifyCustomers(route.id)}
+                onDelete={() => handleDeleteRoute(route.id)}
+                onManageSkipped={() => handleManageSkipped(route)}
+              />
+           ))}
           </div>
-        ) : pendingOrders > 0 ? (
+        </div>
+        ) : hasPendingOrders ? (
           /* Empty state - Encourage route optimization */
           <div className="mb-8 bg-white rounded-lg shadow-lg p-8">
             <div className="text-center max-w-md mx-auto">
@@ -344,7 +337,7 @@ export default function Dashboard() {
                 <button onClick={() => setShowNewOrderModal(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-all hover:shadow">
                   + Nieuwe Order
                 </button>
-                {pendingOrders > 0 && (
+                {hasPendingOrders && (
                   <button
                     onClick={handleOptimizeRoutes}
                     disabled={optimizing}
@@ -465,6 +458,14 @@ export default function Dashboard() {
           onClose={() => setSelectedRouteId(null)}
           routeId={selectedRouteId || ''}
         />
+
+        {showSkippedModal && (
+        <SkippedStopsModal
+          route={showSkippedModal}
+          onClose={() => setShowSkippedModal(null)}
+          onActionComplete={handleSkippedActionComplete}
+        />
+      )}
       </div>
     </div>
   )

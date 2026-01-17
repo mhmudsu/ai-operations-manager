@@ -1,91 +1,108 @@
-import { supabase } from './supabase'
+// Railway Backend API Client
+const API_URL = 'https://routeplan-production.up.railway.app/api'
 
-export async function getCompanyStats(companyId: string) {
-  // Get today's orders count
-  const { count: todayOrders } = await supabase
-    .from('orders')
-    .select('*', { count: 'exact', head: true })
-    .eq('company_id', companyId)
-    .eq('status', 'in-progress')
-
-  // Get active routes count
-  const { count: activeRoutes } = await supabase
-    .from('routes')
-    .select('*', { count: 'exact', head: true })
-    .eq('company_id', companyId)
-    .eq('status', 'active')
-
-  // Calculate today's revenue (mock for now)
-  const revenue = (todayOrders || 0) * 117 // avg €117 per order
-
-  return {
-    todayOrders: todayOrders || 0,
-    activeRoutes: activeRoutes || 0,
-    revenue: revenue,
-    efficiency: 94
-  }
+// Get JWT token from localStorage
+function getAuthToken() {
+  return localStorage.getItem('jwt_token')
 }
 
-export async function getActiveRoutes(companyId: string) {
-  const { data: routes, error } = await supabase
-    .from('routes')
-    .select(`
-      *,
-      driver:drivers(name),
-      stops:route_stops(
-        *,
-        order:orders(*)
-      )
-    `)
-    .eq('company_id', companyId)
-    .in('status', ['planned', 'active'])
-    .order('route_number', { ascending: true })
+// Generic fetch with auth
+async function authFetch(endpoint: string, options: RequestInit = {}) {
+  const token = getAuthToken()
+  
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+      ...options.headers,
+    },
+  })
 
-  if (error) {
-    console.error('Error fetching routes:', error)
-    return []
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Request failed' }))
+    throw new Error(error.detail || `HTTP ${response.status}`)
   }
 
-  return routes || []
+  return response.json()
 }
 
-export async function getOrders(companyId: string) {
-  const { data, error } = await supabase
-    .from('orders')
-    .select('*')
-    .eq('company_id', companyId)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    console.error('Error fetching orders:', error)
-    return []
-  }
-
-  return data || []
+// Auth
+export async function login(email: string, password: string) {
+  const data = await authFetch('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  })
+  
+  localStorage.setItem('jwt_token', data.access_token)
+  return data
 }
 
-// Railway Backend API (for AI route optimization)
-const RAILWAY_API = 'https://routeplan-production.up.railway.app/api'
+export async function signup(company_name: string, email: string, password: string) {
+  const data = await authFetch('/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify({ company_name, email, password }),
+  })
+  
+  localStorage.setItem('jwt_token', data.access_token)
+  return data
+}
 
+// Stats
+export async function getCompanyStats() {
+  return authFetch('/stats')
+}
+
+// Routes
+export async function getRoutes() {
+  return authFetch('/routes')
+}
+
+export async function getActiveRoutes() {
+  const data = await authFetch('/routes')
+  return data.routes || []
+}
+
+export async function deleteRoute(routeId: number) {
+  return authFetch(`/routes/${routeId}`, { method: 'DELETE' })
+}
+
+// Orders
+export async function getOrders() {
+  const data = await authFetch('/orders')
+  return data.orders || []
+}
+
+export async function createOrder(order: any) {
+  return authFetch('/orders', {
+    method: 'POST',
+    body: JSON.stringify(order),
+  })
+}
+
+export async function deleteOrder(orderId: number) {
+  return authFetch(`/orders/${orderId}`, { method: 'DELETE' })
+}
+
+// Planning (AI Optimization)
+export async function optimizeRoutes(orders: any[]) {
+  return authFetch('/planning/create', {
+    method: 'POST',
+    body: JSON.stringify({ orders }),
+  })
+}
+
+// Driver Routes (public - no auth needed)
 export async function getRouteByToken(token: string) {
-  const response = await fetch(`${RAILWAY_API}/routes/${token}`)
+  const response = await fetch(`${API_URL}/routes/public/${token}`)
   if (!response.ok) throw new Error('Route not found')
   return response.json()
 }
 
-export async function optimizeRouteAI(orders: any[]) {
-  const response = await fetch(`${RAILWAY_API}/planning/create`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
-      orders: orders.map(o => ({
-        customer_name: o.customer_name,
-        address: o.delivery_address,
-        weight_kg: o.weight_kg,
-        priority: o.priority || 1
-      }))
-    })
+// Update stop status (driver app)
+export async function updateStopStatus(routeId: number, stopIndex: number, status: string, photo?: string, notes?: string) {
+  return authFetch(`/routes/${routeId}/stops/${stopIndex}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status, photo_url: photo, delivery_notes: notes }),
   })
-  if (!response.ok) throw new Error('Optimization failed')
-  return response.json()
 }
