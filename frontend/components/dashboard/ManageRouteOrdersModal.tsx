@@ -42,8 +42,15 @@ export function ManageRouteOrdersModal({ route, onClose, onActionComplete }: Man
         throw new Error(error.detail || 'Reset mislukt')
       }
 
-      alert('✅ Order succesvol teruggezet naar planning!')
+      // Check if message indicates route was deleted
+      const result = await response.json()
+      if (result.message.includes('Route was leeg')) {
+        alert('✅ Order teruggezet! Route was leeg en is verwijderd.')
+      } else {
+        alert('✅ Order succesvol teruggezet naar planning!')
+      }
       onActionComplete()
+      onClose()
     } catch (error: any) {
       alert(`❌ Fout bij terugzetten: ${error.message}`)
     } finally {
