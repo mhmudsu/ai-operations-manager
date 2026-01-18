@@ -163,7 +163,7 @@ const allCompleted = stopsWithFinalStatus === totalStops && totalStops > 0
     </button>
   )}
 
-        {onManageOrders && (
+        {onManageOrders && !allCompleted && (
           <button
             onClick={(e) => {
               e.stopPropagation()
