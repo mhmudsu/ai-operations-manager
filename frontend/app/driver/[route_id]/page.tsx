@@ -73,6 +73,12 @@ export default function DriverRoutePage() {
     }
   }
 
+  const handleNavigate = (address: string) => {
+    // Open Google Maps with address
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+    window.open(mapsUrl, '_blank')
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">

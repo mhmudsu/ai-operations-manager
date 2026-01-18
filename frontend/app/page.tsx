@@ -141,26 +141,23 @@ export default function Dashboard() {
   }
 
   const handleManageSkipped = (route: any) => {
-  setShowSkippedModal(route)
-}
+    setShowSkippedModal(route)
+  }
 
-const handleSkippedActionComplete = () => {
-
-const handleManageOrders = (route: any) => {
-  setShowManageOrdersModal(route)
-}
-
-const handleManageOrdersComplete = () => {
-  setShowManageOrdersModal(null)
-  fetchData()
-}
-  // Refresh data after reschedule/delete
-  setShowSkippedModal(null)
-  // Trigger data refresh
-  if (user) {
+  const handleSkippedActionComplete = () => {
+    // Refresh data after reschedule/delete
+    setShowSkippedModal(null)
     fetchData()
   }
-}
+
+  const handleManageOrders = (route: any) => {
+    setShowManageOrdersModal(route)
+  }
+
+  const handleManageOrdersComplete = () => {
+    setShowManageOrdersModal(null)
+    fetchData()
+  }
 
   const handleNotifyCustomers = async (routeId: string) => {
     try {
@@ -474,69 +471,23 @@ const handleManageOrdersComplete = () => {
           routeId={selectedRouteId || ''}
         />
 
+        {/* Skipped Stops Modal */}
         {showSkippedModal && (
+          <SkippedStopsModal
+            route={showSkippedModal}
+            onClose={() => setShowSkippedModal(null)}
+            onActionComplete={handleSkippedActionComplete}
+          />
+        )}
 
-      {showManageOrdersModal && (
-        <ManageRouteOrdersModal
-          route={showManageOrdersModal}
-          onClose={() => setShowManageOrdersModal(null)}
-          onActionComplete={handleManageOrdersComplete}
-        />
-      )}
-        <SkippedStopsModal
-
-      {showManageOrdersModal && (
-        <ManageRouteOrdersModal
-          route={showManageOrdersModal}
-          onClose={() => setShowManageOrdersModal(null)}
-          onActionComplete={handleManageOrdersComplete}
-        />
-      )}
-          route={showSkippedModal}
-
-      {showManageOrdersModal && (
-        <ManageRouteOrdersModal
-          route={showManageOrdersModal}
-          onClose={() => setShowManageOrdersModal(null)}
-          onActionComplete={handleManageOrdersComplete}
-        />
-      )}
-          onClose={() => setShowSkippedModal(null)}
-
-      {showManageOrdersModal && (
-        <ManageRouteOrdersModal
-          route={showManageOrdersModal}
-          onClose={() => setShowManageOrdersModal(null)}
-          onActionComplete={handleManageOrdersComplete}
-        />
-      )}
-          onActionComplete={handleSkippedActionComplete}
-
-      {showManageOrdersModal && (
-        <ManageRouteOrdersModal
-          route={showManageOrdersModal}
-          onClose={() => setShowManageOrdersModal(null)}
-          onActionComplete={handleManageOrdersComplete}
-        />
-      )}
-        />
-
-      {showManageOrdersModal && (
-        <ManageRouteOrdersModal
-          route={showManageOrdersModal}
-          onClose={() => setShowManageOrdersModal(null)}
-          onActionComplete={handleManageOrdersComplete}
-        />
-      )}
-      )}
-
-      {showManageOrdersModal && (
-        <ManageRouteOrdersModal
-          route={showManageOrdersModal}
-          onClose={() => setShowManageOrdersModal(null)}
-          onActionComplete={handleManageOrdersComplete}
-        />
-      )}
+        {/* Manage Route Orders Modal */}
+        {showManageOrdersModal && (
+          <ManageRouteOrdersModal
+            route={showManageOrdersModal}
+            onClose={() => setShowManageOrdersModal(null)}
+            onActionComplete={handleManageOrdersComplete}
+          />
+        )}
       </div>
     </div>
   )
