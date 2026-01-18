@@ -181,7 +181,7 @@ export function ManageRouteOrdersModal({ route, onClose, onActionComplete }: Man
                   </div>
                 </div>
 
-                {stop.status !== 'pending' && (
+                {stop.status !== 'pending' && stops.length > 1 && (
                   <button
                     onClick={() => handleResetSingleOrder(stop)}
                     disabled={processing !== null}
