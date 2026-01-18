@@ -7,9 +7,10 @@ interface LiveRouteCardProps {
   onDelete: (routeId: string) => void
   onNotifyCustomers?: (routeId: string) => void
   onManageSkipped?: (route: any) => void
+  onManageOrders?: (route: any) => void
 }
 
-export function LiveRouteCard({ route, onClick, onDelete, onNotifyCustomers, onManageSkipped }: LiveRouteCardProps) {
+export function LiveRouteCard({ route, onClick, onDelete, onNotifyCustomers, onManageSkipped, onManageOrders }: LiveRouteCardProps) {
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (confirm('Weet je zeker dat je deze route wilt verwijderen?')) {
@@ -161,6 +162,18 @@ const allCompleted = stopsWithFinalStatus === totalStops && totalStops > 0
       ⚠️ Beheer Niet-uitgevoerde Orders
     </button>
   )}
+
+        {onManageOrders && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onManageOrders(route)
+            }}
+            className="w-full px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors font-medium flex items-center justify-center gap-2 border border-blue-200"
+          >
+            🔄 Beheer Orders ({totalStops})
+          </button>
+        )}
 
         <Link
           href={`/driver/${route.id}`}

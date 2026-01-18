@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { ManageRouteOrdersModal } from '@/components/dashboard/ManageRouteOrdersModal'
 import { Truck, Package, DollarSign, TrendingUp, MapPin, Trash2 } from 'lucide-react'
 import { DashboardCard } from '@/components/dashboard/DashboardCard'
 import { LiveRouteCard } from '@/components/dashboard/LiveRouteCard'
@@ -42,35 +43,39 @@ export default function Dashboard() {
   }, [showCSVUpload])
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
   const [showSkippedModal, setShowSkippedModal] = useState<any>(null)
+  const [showManageOrdersModal, setShowManageOrdersModal] = useState<any>(null)
+
+  // Define fetchData OUTSIDE useEffect so it can be reused
+  const fetchData = async () => {
+    if (!user) return
+    
+    try {
+      setLoadingData(true)
+      
+      // Fetch orders AND routes
+      const [ordersData, routesData, statsData] = await Promise.all([
+        api.getOrders('pending'),
+        api.getRoutes(),
+        api.getStats(statsPeriod),
+      ])
+      
+      setOrders(ordersData.orders || [])
+      
+      // Use original route data (no transform needed)
+      setRoutes(routesData.routes || [])
+      setStats(statsData?.stats || null)
+      
+    } catch (err: any) {
+      console.error('Error fetching data:', err)
+      setError(err.message)
+    } finally {
+      setLoadingData(false)
+    }
+  }
 
   useEffect(() => {
     if (!user) return
-
-    const fetchData = async () => {
-      try {
-        setLoadingData(true)
-        
-        // Fetch orders AND routes
-        const [ordersData, routesData, statsData] = await Promise.all([
-          api.getOrders('pending'),
-          api.getRoutes(),
-          api.getStats(statsPeriod),
-        ])
-        
-        setOrders(ordersData.orders || [])
-        
-        // Use original route data (no transform needed)
-        setRoutes(routesData.routes || [])
-        setStats(statsData?.stats || null)
-        
-      } catch (err: any) {
-        console.error('Error fetching data:', err)
-        setError(err.message)
-      } finally {
-        setLoadingData(false)
-      }
-    }
-
+    
     // Initial load
     fetchData()
     
@@ -107,10 +112,10 @@ export default function Dashboard() {
         
       // Refresh routes after optimization
       const routesData = await api.getRoutes()
-      setRoutes([newRoute, ...routes])
+      setRoutes(routesData)
       
       // Refresh orders to show updated status
-      setRefreshTrigger(prev => prev + 1)
+      fetchData()
       
       // Show success message
       alert(`✅ ${result.saved_routes?.length || 0} routes geoptimaliseerd!`)
@@ -128,7 +133,7 @@ export default function Dashboard() {
     try {
       await api.deleteRoute(routeId)
       // Refresh routes
-      setRefreshTrigger(prev => prev + 1)
+      fetchData()
     } catch (err: any) {
       console.error("Delete route error:", err)
       alert("Fout bij verwijderen route: " + err.message)
@@ -140,6 +145,15 @@ export default function Dashboard() {
 }
 
 const handleSkippedActionComplete = () => {
+
+const handleManageOrders = (route: any) => {
+  setShowManageOrdersModal(route)
+}
+
+const handleManageOrdersComplete = () => {
+  setShowManageOrdersModal(null)
+  fetchData()
+}
   // Refresh data after reschedule/delete
   setShowSkippedModal(null)
   // Trigger data refresh
@@ -162,7 +176,7 @@ const handleSkippedActionComplete = () => {
     if (!confirm("Weet je zeker dat je deze order wilt verwijderen?")) return
     try {
       await api.deleteOrder(orderId)
-      setRefreshTrigger(prev => prev + 1)
+      fetchData()
     } catch (err: any) {
       console.error("Delete order error:", err)
       alert("Fout bij verwijderen: " + err.message)
@@ -209,7 +223,7 @@ const handleSkippedActionComplete = () => {
           
           {/* REFRESH BUTTON */}
           <button
-            onClick={() => setRefreshTrigger(prev => prev + 1)}
+            onClick={() => fetchData()}
             disabled={loadingData}
             className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm transition-all hover:shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             title="Ververs data"
@@ -295,6 +309,7 @@ const handleSkippedActionComplete = () => {
                 onNotifyCustomers={() => handleNotifyCustomers(route.id)}
                 onDelete={() => handleDeleteRoute(route.id)}
                 onManageSkipped={() => handleManageSkipped(route)}
+                onManageOrders={() => handleManageOrders(route)}
               />
            ))}
           </div>
@@ -436,7 +451,7 @@ const handleSkippedActionComplete = () => {
           <div ref={csvUploadRef} className="mb-8">
             <CSVUpload 
               onUploadComplete={() => {
-                setRefreshTrigger(prev => prev + 1)
+                fetchData()
                 setShowCSVUpload(false)
               }}
             />
@@ -448,7 +463,7 @@ const handleSkippedActionComplete = () => {
           isOpen={showNewOrderModal}
           onClose={() => setShowNewOrderModal(false)}
           onSuccess={() => {
-            setRefreshTrigger(prev => prev + 1)
+            fetchData()
           }}
         />
 
@@ -460,10 +475,66 @@ const handleSkippedActionComplete = () => {
         />
 
         {showSkippedModal && (
+
+      {showManageOrdersModal && (
+        <ManageRouteOrdersModal
+          route={showManageOrdersModal}
+          onClose={() => setShowManageOrdersModal(null)}
+          onActionComplete={handleManageOrdersComplete}
+        />
+      )}
         <SkippedStopsModal
+
+      {showManageOrdersModal && (
+        <ManageRouteOrdersModal
+          route={showManageOrdersModal}
+          onClose={() => setShowManageOrdersModal(null)}
+          onActionComplete={handleManageOrdersComplete}
+        />
+      )}
           route={showSkippedModal}
+
+      {showManageOrdersModal && (
+        <ManageRouteOrdersModal
+          route={showManageOrdersModal}
+          onClose={() => setShowManageOrdersModal(null)}
+          onActionComplete={handleManageOrdersComplete}
+        />
+      )}
           onClose={() => setShowSkippedModal(null)}
+
+      {showManageOrdersModal && (
+        <ManageRouteOrdersModal
+          route={showManageOrdersModal}
+          onClose={() => setShowManageOrdersModal(null)}
+          onActionComplete={handleManageOrdersComplete}
+        />
+      )}
           onActionComplete={handleSkippedActionComplete}
+
+      {showManageOrdersModal && (
+        <ManageRouteOrdersModal
+          route={showManageOrdersModal}
+          onClose={() => setShowManageOrdersModal(null)}
+          onActionComplete={handleManageOrdersComplete}
+        />
+      )}
+        />
+
+      {showManageOrdersModal && (
+        <ManageRouteOrdersModal
+          route={showManageOrdersModal}
+          onClose={() => setShowManageOrdersModal(null)}
+          onActionComplete={handleManageOrdersComplete}
+        />
+      )}
+      )}
+
+      {showManageOrdersModal && (
+        <ManageRouteOrdersModal
+          route={showManageOrdersModal}
+          onClose={() => setShowManageOrdersModal(null)}
+          onActionComplete={handleManageOrdersComplete}
         />
       )}
       </div>

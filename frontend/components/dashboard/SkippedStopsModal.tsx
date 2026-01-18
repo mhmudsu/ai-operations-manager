@@ -15,12 +15,12 @@ export function SkippedStopsModal({ route, onClose, onActionComplete }: SkippedS
     .filter((stop: any) => stop.status === 'skipped')
 
   const handleReschedule = async (stop: any) => {
-  if (!confirm(`Order van ${stop.customer} herplannen?\n\nDe order wordt teruggezet naar "pending" en kan in een nieuwe route worden geplaatst.`)) {
-    return
-  }
+    if (!confirm(`Order van ${stop.customer} herplannen?\n\nDe order wordt teruggezet naar "pending" en kan in een nieuwe route worden geplaatst.`)) {
+      return
+    }
 
     setProcessing(`reschedule-${stop.originalIndex}`)
-
+    
     try {
       const token = localStorage.getItem('jwt_token')
       const response = await fetch(`https://routeplan-production.up.railway.app/api/routes/${route.id}/stops/${stop.originalIndex}/reschedule`, {
@@ -52,14 +52,13 @@ export function SkippedStopsModal({ route, onClose, onActionComplete }: SkippedS
     }
 
     setProcessing(`delete-${stop.originalIndex}`)
-
+    
     try {
       const token = localStorage.getItem('jwt_token')
       const response = await fetch(`https://routeplan-production.up.railway.app/api/routes/${route.id}/stops/${stop.originalIndex}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${token}`
         }
       })
 
@@ -79,51 +78,47 @@ export function SkippedStopsModal({ route, onClose, onActionComplete }: SkippedS
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-6 h-6" />
-              <div>
-                <h2 className="text-xl font-bold">Niet-uitgevoerde Orders</h2>
-                <p className="text-white/90 text-sm">Route {route.id} - {route.driver_name}</p>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-white/80 hover:text-white transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">
+              ⚠️ Niet-uitgevoerde Orders
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Route {route.id} - {skippedStops.length} order(s) niet uitgevoerd
+            </p>
           </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+        <div className="flex-1 overflow-y-auto p-6">
           {skippedStops.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <Package className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-              <p className="text-lg font-medium">Geen niet-uitgevoerde orders</p>
-              <p className="text-sm">Alle stops zijn voltooid of in behandeling</p>
+            <div className="text-center py-12">
+              <AlertTriangle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">Geen niet-uitgevoerde orders</p>
             </div>
           ) : (
             <div className="space-y-4">
-              <p className="text-sm text-gray-600 mb-4">
-                De volgende orders konden niet worden uitgevoerd. Kies per order of je deze wilt herplannen of verwijderen.
-              </p>
-
               {skippedStops.map((stop: any) => (
-                <div 
+                <div
                   key={stop.originalIndex}
-                  className="border-2 border-orange-200 rounded-xl p-4 bg-orange-50/50 hover:shadow-md transition-shadow"
+                  className="bg-red-50 border-2 border-red-200 rounded-lg p-4"
                 >
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <Package className="w-5 h-5 text-orange-600" />
-                        <h3 className="font-bold text-gray-900">{stop.customer}</h3>
+                        <Package className="w-5 h-5 text-red-600" />
+                        <h3 className="font-bold text-gray-900">
+                          {stop.customer}
+                        </h3>
                       </div>
                       
                       <div className="space-y-1 text-sm text-gray-600">
@@ -131,10 +126,10 @@ export function SkippedStopsModal({ route, onClose, onActionComplete }: SkippedS
                           <MapPin className="w-4 h-4 text-gray-400" />
                           <span>{stop.address}</span>
                         </div>
-                        {stop.weight_kg && (
+                        {stop.weight && (
                           <div className="flex items-center gap-2">
                             <Weight className="w-4 h-4 text-gray-400" />
-                            <span>{stop.weight_kg} kg</span>
+                            <span>{stop.weight} kg</span>
                           </div>
                         )}
                       </div>
