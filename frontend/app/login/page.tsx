@@ -19,7 +19,7 @@ export default function LoginPage() {
 
     try {
       await login(email, password)
-      router.push('/admin')
+      router.push('/')
     } catch (err: any) {
       setError(err.message)
     } finally {
