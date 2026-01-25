@@ -12,6 +12,30 @@ export default function DriversPage() {
   const [loadingData, setLoadingData] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingDriver, setEditingDriver] = useState<any>(null)
+  // Toggle driver availability
+  const toggleDriverAvailability = async (driverId: string, currentStatus: boolean) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/drivers/${driverId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({ is_available: !currentStatus }),
+      })
+
+      if (response.ok) {
+        setDrivers(prev => prev.map(d => 
+          d.id === driverId ? { ...d, is_available: !currentStatus } : d
+        ))
+      } else {
+        alert("Fout bij het updaten van chauffeur status")
+      }
+    } catch (error) {
+      console.error("Error toggling driver:", error)
+      alert("Fout bij het updaten van chauffeur status")
+    }
+  }
   const [formData, setFormData] = useState({ name: '', phone: '', email: '' })
   const [saving, setSaving] = useState(false)
 
@@ -156,13 +180,19 @@ export default function DriversPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        driver.is_available 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {driver.is_available ? 'Beschikbaar' : 'Niet beschikbaar'}
-                      </span>
+                      <button
+                        onClick={() => toggleDriverAvailability(driver.id, driver.is_available)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                          driver.is_available ? "bg-green-500" : "bg-gray-300"
+                        }`}
+                        title={driver.is_available ? "Actief - klik om uit te schakelen" : "Niet actief - klik om te activeren"}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            driver.is_available ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
